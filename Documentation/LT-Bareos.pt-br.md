@@ -49,5 +49,61 @@ que recebem LT Bareos (erro "linked twice").
 - Apos mudar prototypes, itens descobertos sincronizam na proxima
   execucao da LLD (ou reinicio do server/Execute now).
 
+## Decisoes de design (vs. templates legados da comunidade)
+
+O LT Bareos foi desenhado a partir da analise critica de implementacoes
+historicas (2015-2018, Zabbix 2.4-3.4 / Bareos 15-17). As seguintes
+decisoes de arquitetura sao diferenciais deliberados do projeto:
+
+### Coleta nao-invasiva (read-only)
+Templates legados dependem de hooks no `mailcommand` do `bareos-dir.conf`
+e de `zabbix_sender` para enviar dados ao server. Isso acopla o
+monitoramento ao ciclo de vida dos jobs e falha quando o mailer nao
+esta disponivel. O LT Bareos consulta o catalog via SQL em modo
+read-only (usuario `zabbix_ro` com SELECT), sem alterar nenhuma
+configuracao do Bareos.
+
+### Cache de dados (120s)
+Todas as queries sao agrupadas em um unico lote a cada 120 segundos,
+independente do numero de clients, pools ou itens ativos. Templates
+legados disparavam queries por job ou por item, causando carga
+desnecessaria no catalog em escala.
+
+### LLD combinado com severidade dinamica por nivel
+Templates antigos tinham LLD (descoberta de clients) **ou** severidade
+por nivel de backup (Full/Diff/Inc), mas nunca ambos. O LT Bareos usa
+trigger prototypes dentro da LLD para atribuir severidade adequada a
+cada nivel: Full = HIGH, Differential = AVERAGE, Incremental = WARNING.
+
+### Indicadores de continuidade
+Alem do status do ultimo job, o template monitora:
+- Idade do ultimo backup bem-sucedido por client (`agegood`)
+- Queda abrupta de tamanho entre Fulls consecutivos (indicador de
+  continuidade / possivel ransomware)
+- Idade especifica por nivel (Full, Diff, Inc)
+
+Esses indicadores detectam falhas de politica e comportamento anomalo
+que um simples "ultimo job falhou?" nao captura.
+
+### Semantica explicita de "sem dados"
+- `-1`: nenhum job daquele nivel ainda (nao dispara trigger)
+- `99999`: client nunca teve backup bem-sucedido (dispara "unprotected")
+
+Templates legados frequentemente produziam falsos positivos ou buracos
+de monitoramento nessas situacoes.
+
+### Thresholds 100% via macros
+Todas as 8 macros de threshold sao ajustaveis por host sem editar
+nenhuma trigger. O valor `0` em macros especificas desliga o
+correspondente indicador (ex.: `{$BAREOS.SIZE.DROP.PCT}=0` desativa
+a detecao de queda de tamanho em clients pequenos/variaveis).
+
+### Heranca e padronizacao
+O LT Bareos herda o LT Linux Base, evitando duplicacao de itens de
+SO/infraestrutura. Tags padronizadas (`component:*`, `service:bareos`)
+permitem filtragem consistente em dashboards e acoes. Nomes de hosts
+no Zabbix nao precisam ser iguais aos nomes de clients no Bareos (ao
+contrario de algumas implementacoes legadas), gracas ao LLD.
+
 ## Historico
 - v0.2.0 (24/08/2026): primeira versao validada no Zabbix 7.0 LTS.
