@@ -1,0 +1,7 @@
+# LT Bareos collector configuration - EXAMPLE
+# Never commit real credentials. Use placeholders only.
+host=127.0.0.1
+port=5432
+db=bareos
+user=zabbix_ro
+password=YOUR_PASSWORD_HERE
