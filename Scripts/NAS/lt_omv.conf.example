@@ -1,0 +1,6 @@
+# OpenMediaVault collector configuration - EXAMPLE
+# Never commit real credentials. Use placeholders only.
+omv_url=http://127.0.0.1
+username=admin
+password=YOUR_PASSWORD_HERE
+verify_ssl=False
