@@ -35,7 +35,7 @@ monitoring:
 |----------|-------------|--------|
 | LT Linux Base | Foundation template for Linux systems | v0.1.0 |
 | LT Bareos | Bareos backup suite (Director, SD, FD, jobs, storage, catalog) | v0.2.0 |
-| LT NAS / Storage | NAS and storage systems | planned |
+| LT NAS / Storage | NAS and storage systems | v0.3.0 |
 | LT OPNsense | OPNsense firewalls | planned |
 | LT MikroTik | MikroTik routers | planned |
 | LT PostgreSQL | PostgreSQL databases | planned |

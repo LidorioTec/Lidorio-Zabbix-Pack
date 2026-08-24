@@ -1,0 +1,144 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
+      name: 'Lidorio Tech'
+  templates:
+    - uuid: 1a57a9e0000140008000000000000001
+      template: 'LT NAS Storage'
+      name: 'LT NAS Storage'
+      description: 'NAS/Storage monitoring - LIDORIO TECH standard. OpenMediaVault adapter via REST RPC (read-only). Inherits LT Linux Base on Linux platforms.'
+      templates:
+        - name: 'LT Linux Base'
+      groups:
+        - name: 'Lidorio Tech'
+      tags:
+        - tag: 'component'
+          value: 'storage'
+        - tag: 'service'
+          value: 'nas'
+        - tag: 'target'
+          value: 'LT NAS Storage'
+      macros:
+        - macro: '{$NAS.FS.PUSED.WARN}'
+          value: '80'
+        - macro: '{$NAS.FS.PUSED.HIGH}'
+          value: '90'
+        - macro: '{$NAS.DISK.TEMP.WARN}'
+          value: '50'
+        - macro: '{$NAS.DISK.TEMP.HIGH}'
+          value: '60'
+      items:
+        - uuid: 1a57a9e0000240008000000000000002
+          name: 'OMV API connectivity'
+          key: 'omv.ping'
+          delay: 1m
+          history: 2w
+          description: 'Read-only connectivity to the OpenMediaVault RPC API. 1 = OK.'
+          tags:
+            - tag: 'component'
+              value: 'api'
+      discovery_rules:
+        - uuid: 1a57a9e0000440008000000000000004
+          name: 'OMV filesystems discovery'
+          key: 'omv.discover.filesystems'
+          delay: 1h
+          description: 'Discovers OMV-managed data filesystems (mounted, non-swap, non-root).'
+          item_prototypes:
+            - uuid: 1a57a9e0000540008000000000000005
+              name: 'OMV filesystem {#FSNAME}: total space'
+              key: 'omv.fs[{#FSNAME},total]'
+              delay: 5m
+              history: 2w
+              units: B
+              tags:
+                - tag: 'component'
+                  value: 'filesystem'
+            - uuid: 1a57a9e0000640008000000000000006
+              name: 'OMV filesystem {#FSNAME}: used space'
+              key: 'omv.fs[{#FSNAME},used]'
+              delay: 5m
+              history: 2w
+              units: B
+              tags:
+                - tag: 'component'
+                  value: 'filesystem'
+            - uuid: 1a57a9e0000740008000000000000007
+              name: 'OMV filesystem {#FSNAME}: available space'
+              key: 'omv.fs[{#FSNAME},available]'
+              delay: 5m
+              history: 2w
+              units: B
+              tags:
+                - tag: 'component'
+                  value: 'filesystem'
+            - uuid: 1a57a9e0000840008000000000000008
+              name: 'OMV filesystem {#FSNAME}: utilization'
+              key: 'omv.fs[{#FSNAME},percentage]'
+              delay: 5m
+              history: 2w
+              units: '%'
+              tags:
+                - tag: 'component'
+                  value: 'filesystem'
+              trigger_prototypes:
+                - uuid: 1a57a9e0000940008000000000000009
+                  expression: 'last(/LT NAS Storage/omv.fs[{#FSNAME},percentage])>{$NAS.FS.PUSED.WARN}'
+                  name: 'OMV filesystem {#FSNAME} ({#FSMOUNT}) is filling up'
+                  priority: WARNING
+                - uuid: 1a57a9e0001040008000000000000010
+                  expression: 'last(/LT NAS Storage/omv.fs[{#FSNAME},percentage])>{$NAS.FS.PUSED.HIGH}'
+                  name: 'OMV filesystem {#FSNAME} ({#FSMOUNT}) is critically full'
+                  priority: HIGH
+        - uuid: 1a57a9e0001140008000000000000011
+          name: 'OMV disks discovery'
+          key: 'omv.discover.disks'
+          delay: 1h
+          description: 'Discovers physical disks reported by OMV.'
+          item_prototypes:
+            - uuid: 1a57a9e0001240008000000000000012
+              name: 'OMV disk {#DISKNAME}: size'
+              key: 'omv.disk[{#DISKNAME},size]'
+              delay: 1h
+              history: 2w
+              units: B
+              tags:
+                - tag: 'component'
+                  value: 'disk'
+            - uuid: 1a57a9e0001340008000000000000013
+              name: 'OMV disk {#DISKNAME}: power mode'
+              key: 'omv.disk[{#DISKNAME},powermode]'
+              delay: 5m
+              history: 2w
+              description: '1 = ACTIVE or IDLE, 0 = standby/offline/unknown.'
+              tags:
+                - tag: 'component'
+                  value: 'disk'
+            - uuid: 1a57a9e0001440008000000000000014
+              name: 'OMV disk {#DISKNAME}: temperature'
+              key: 'omv.disk[{#DISKNAME},temperature]'
+              delay: 5m
+              history: 2w
+              value_type: FLOAT
+              units: C
+              description: '0 = not available on this platform (no false positives).'
+              tags:
+                - tag: 'component'
+                  value: 'disk'
+              trigger_prototypes:
+                - uuid: 1a57a9e0001640008000000000000016
+                  expression: 'last(/LT NAS Storage/omv.disk[{#DISKNAME},temperature])>{$NAS.DISK.TEMP.WARN}'
+                  name: 'OMV disk {#DISKNAME}: temperature above {$NAS.DISK.TEMP.WARN} C'
+                  priority: WARNING
+                - uuid: 1a57a9e0001740008000000000000017
+                  expression: 'last(/LT NAS Storage/omv.disk[{#DISKNAME},temperature])>{$NAS.DISK.TEMP.HIGH}'
+                  name: 'OMV disk {#DISKNAME}: temperature above {$NAS.DISK.TEMP.HIGH} C'
+                  priority: HIGH
+  triggers:
+    - uuid: 1a57a9e0000340008000000000000003
+      expression: 'last(/LT NAS Storage/omv.ping)=0'
+      name: 'OMV API is unreachable on {HOST.NAME}'
+      priority: HIGH
+      tags:
+        - tag: 'component'
+          value: 'api'
