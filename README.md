@@ -1,4 +1,5 @@
 # Lidorio-Zabbix-Pack
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A standardized Zabbix monitoring framework by LIDORIO TECH.
 
@@ -59,8 +60,17 @@ monitoring:
 
 ## Documentation
 
-- English: Documentation/LT-Linux-Base.en.md
-- Portugues: Documentation/LT-Linux-Base.pt-br.md
+Each template ships bilingual documentation:
+
+- **LT Linux Base**
+  - English: Documentation/LT-Linux-Base.en.md
+  - Portugues: Documentation/LT-Linux-Base.pt-br.md
+- **LT Bareos**
+  - English: Documentation/LT-Bareos.en.md
+  - Portugues: Documentation/LT-Bareos.pt-br.md
+- **LT NAS / Storage**
+  - English: Documentation/LT-NAS-Storage.en.md
+  - Portugues: Documentation/LT-NAS-Storage.pt-br.md
 
 ## Naming and Standards
 
@@ -73,6 +83,30 @@ monitoring:
 ## Contributing
 
 Forks, issues and pull requests are welcome.
+
+## 💖 Support the Project
+
+If Lidorio-Zabbix-Pack helps your operation and you want to support its
+continued development, contributions are welcome:
+
+### 🇧🇷 PIX (Brazil)
+
+Key: `lidoriotech@gmail.com`
+
+<p align="center">
+  <img src="assets/pix-qrcode.png" alt="PIX QR Code" width="220"/>
+</p>
+
+### 🌍 PayPal (International)
+
+[Donate with PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=lidoriotech@gmail.com)
+
+Thank you for supporting open source! 🙏
+
+##  License
+
+This project is licensed under the MIT License - see the
+[LICENSE](LICENSE) file for details.
 
 ## About
 
