@@ -43,6 +43,7 @@ monitoring:
 | LT MariaDB | MariaDB databases | planned |
 | LT Samba AD | Samba Active Directory | planned |
 | LT Docker | Docker containers | planned |
+| LT RustFS | RustFS S3 object storage (buckets, nodes, cluster health, capacity) | planned |
 
 ## Requirements
 
