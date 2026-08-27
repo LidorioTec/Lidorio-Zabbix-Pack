@@ -1,0 +1,6 @@
+# RustFS collector configuration - EXAMPLE
+# Never commit real credentials. Use placeholders only.
+endpoint=http://127.0.0.1:9000
+access_key=YOUR_ACCESS_KEY
+secret_key=YOUR_SECRET_KEY
+data_path=/data/rustfs/mnmd
