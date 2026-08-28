@@ -1,0 +1,96 @@
+================================================================================
+TRUENAS SCALE — POR QUE O IP ESTÁTICO SE PERDE NO REBOOT E COMO FIXAR DE VERDADE
+LIDORIO TECH | Lidorio-Zabbix-Pack | Documento operacional (lab)
+Ambiente: TrueNAS SCALE 25.10.6 | truenas01 | 192.168.2.217/24 | gw 192.168.2.1
+Data: 2026-08-27
+================================================================================
+
+1. SINTOMA
+--------------------------------------------------------------------------------
+O IP estático configurado com comandos de shell (ip addr add ...) funciona
+até o próximo reboot. Após reiniciar, a VM volta para o IP anterior/DHCP
+(ex.: 192.168.2.109) e toda a configuração de rede manual some.
+
+2. CAUSA RAIZ
+--------------------------------------------------------------------------------
+O TrueNAS SCALE NÃO usa /etc/network/interfaces nem NetworkManager como fonte
+da verdade. Ele gerencia a rede pelo próprio BANCO DE DADOS do middleware
+(/data/freenas.sqlite) e REGENERA a configuração de rede a cada boot.
+
+Comandos como "ip addr", "ip link" ou "ip route" alteram apenas o estado
+VOLÁTIL do kernel (runtime). Nada disso é gravado no banco do middleware,
+portanto nada sobrevive ao reboot.
+
+3. SOLUÇÃO ERRADA (volátil — não usar para fixar IP)
+--------------------------------------------------------------------------------
+  ip addr flush dev enp0s3
+  ip addr add 192.168.2.217/24 dev enp0s3
+  ip link set enp0s3 up
+  -> Vale só até o reboot. Útil apenas como passo INTERMEDIÁRIO (item 4.1).
+
+4. SOLUÇÃO CORRETA (persistente)
+--------------------------------------------------------------------------------
+A configuração precisa ser gravada no banco do middleware, via Web UI ou
+midclt. Recomenda-se o midclt quando a Web UI falha na validação.
+
+4.1) Conecte e aplique o IP temporário (necessário para a validação de
+     gateway passar nos passos seguintes):
+
+  ssh truenas_admin@<IP_ATUAL>
+  sudo -i
+  ip addr flush dev enp0s3
+  ip addr add 192.168.2.217/24 dev enp0s3
+  ip link set enp0s3 up
+  ping -c 2 192.168.2.1
+
+  (Ajuste o nome da interface com: ip -br link)
+
+4.2) Grave no banco do TrueNAS (persistente):
+
+  midclt call interface.update enp0s3 \
+    '{"ipv4_dhcp": false, "aliases": [{"address": "192.168.2.217", "netmask": 24}]}'
+
+  midclt call network.configuration.update \
+    '{"ipv4gateway": "192.168.2.1", "nameserver1": "192.168.2.1", "hostname": "truenas01"}'
+
+  midclt call interface.commit
+  (Se "interface.commit" não existir na versão: apenas reinicie — o banco
+   já foi atualizado e o reboot aplica.)
+
+4.3) Alternativa pela Web UI (funciona se o IP temporário estiver ativo):
+
+  Network -> Interfaces -> enp0s3 -> Edit
+    - Desmarcar DHCP
+    - IPv4: 192.168.2.217 / 24
+    - Save
+  Network -> Global Configuration
+    - Gateway: 192.168.2.1 | DNS: 192.168.2.1 | Hostname: truenas01
+    - Save
+
+5. VALIDAÇÃO (prova real)
+--------------------------------------------------------------------------------
+  reboot
+  # De outro host:
+  ping -c 3 192.168.2.217
+  ssh truenas_admin@192.168.2.217
+  -> Se responder após o reboot, o IP está fixado de verdade.
+
+6. ARMADILHAS CONHECIDAS
+--------------------------------------------------------------------------------
+- "Gateway X is unreachable" ao salvar na Web UI: a validação testa o gateway
+  contra a rede ATIVA. Sem IP na interface, falha. Aplique o IP temporário
+  (4.1) antes de salvar.
+- "Please specify the IP address in CIDR notation" no console: informar o IP
+  com a máscara junto (ex.: 192.168.2.217/24), nunca só o endereço.
+- SSH "Permission denied (publickey)": no SCALE 25.x o login por senha exige
+  o grupo do usuário em Services -> SSH -> "Password Login Groups" (ou usar
+  chave pública / root com "Log in as Root with Password").
+- Não editar arquivos em /etc para rede: são regenerados e sobrescritos.
+
+7. REGRA DE OURO
+--------------------------------------------------------------------------------
+No TrueNAS SCALE, rede se configura SOMENTE via Web UI ou midclt
+(interface.update + network.configuration.update). Todo o resto é volátil.
+
+================================================================================
+FIM DO DOCUMENTO
