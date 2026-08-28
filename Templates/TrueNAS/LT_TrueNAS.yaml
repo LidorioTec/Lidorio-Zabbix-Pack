@@ -1,479 +1,510 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-    - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
-      name: 'Lidorio Tech'
+  - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
+    name: Lidorio Tech
   templates:
-    - uuid: 2c68b0d0000140008000000000000001
-      template: 'LT TrueNAS'
-      name: 'LT TrueNAS'
-      description: 'TrueNAS SCALE 25.10+ monitoring - LIDORIO TECH standard. SNMP-only (agentless). OIDs validated on TrueNAS SCALE 25.10.6. Superior to official template (broken MIBs in 25.10).'
-      groups:
-        - name: 'Lidorio Tech'
+  - uuid: 2c68b0d0000140008000000000000001
+    template: LT TrueNAS
+    name: LT TrueNAS
+    description: TrueNAS SCALE 25.10+ monitoring - LIDORIO TECH standard. SNMP-only
+      (agentless). OIDs validated on TrueNAS SCALE 25.10.6. Superior to official template
+      (broken MIBs in 25.10).
+    groups:
+    - name: Lidorio Tech
+    tags:
+    - tag: component
+      value: storage
+    - tag: service
+      value: truenas
+    - tag: target
+      value: LT TrueNAS
+    macros:
+    - macro: '{$CPU.UTIL.CRIT}'
+      value: '90'
+    - macro: '{$LOAD_AVG_PER_CPU.MAX.WARN}'
+      value: '1.5'
+    - macro: '{$MEMORY.AVAILABLE.MIN}'
+      value: 100M
+    - macro: '{$MEMORY.UTIL.MAX}'
+      value: '90'
+    - macro: '{$SWAP.PFREE.MIN.WARN}'
+      value: '50'
+    - macro: '{$ZPOOL.PUSED.MAX.WARN}'
+      value: '80'
+    - macro: '{$ZPOOL.PUSED.MAX.CRIT}'
+      value: '90'
+    - macro: '{$ZPOOL.FREE.MIN.WARN}'
+      value: 5G
+    - macro: '{$ZPOOL.FREE.MIN.CRIT}'
+      value: 2G
+    - macro: '{$DATASET.PUSED.MAX.WARN}'
+      value: '80'
+    - macro: '{$DATASET.PUSED.MAX.CRIT}'
+      value: '90'
+    - macro: '{$DATASET.FREE.MIN.WARN}'
+      value: 5G
+    - macro: '{$DATASET.FREE.MIN.CRIT}'
+      value: 2G
+    - macro: '{$DATASET.NAME.MATCHES}'
+      value: .+
+    - macro: '{$DATASET.NAME.NOT_MATCHES}'
+      value: ^(boot|.+\.system(.+)?$)
+    - macro: '{$TEMPERATURE.MAX.WARN}'
+      value: '50'
+    - macro: '{$TEMPERATURE.MAX.CRIT}'
+      value: '65'
+    - macro: '{$SNMP.TIMEOUT}'
+      value: 5m
+    - macro: '{$ICMP_LOSS_WARN}'
+      value: '20'
+    - macro: '{$ICMP_RESPONSE_TIME_WARN}'
+      value: '0.15'
+    - macro: '{$SNAPSHOT.AGE.MAX.WARN}'
+      value: '604800'
+      description: Warn if newest snapshot is older than 7 days (seconds)
+    - macro: '{$ARC.HITRATIO.MIN.WARN}'
+      value: '80'
+      description: ARC hit ratio below this % indicates memory pressure
+    items:
+    - uuid: 2c68b0d0000240008000000000000001
+      name: ICMP ping
+      type: SIMPLE
+      key: icmpping
+      delay: 1m
+      history: 2w
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000001
+        expression: max(/LT TrueNAS/icmpping,#3)=0
+        name: Unavailable by ICMP ping
+        priority: HIGH
+    - uuid: 2c68b0d0000240008000000000000002
+      name: SNMP agent availability
+      type: INTERNAL
+      key: zabbix[host,snmp,available]
+      delay: 1m
+      history: 2w
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000002
+        expression: max(/LT TrueNAS/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0
+        name: No SNMP data collection
+        priority: WARNING
+        dependencies:
+        - name: Unavailable by ICMP ping
+          expression: max(/LT TrueNAS/icmpping,#3)=0
+    - uuid: 2c68b0d0000240008000000000000003
+      name: Uptime
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.25.1.1.0
+      key: system.uptime
+      delay: 1m
+      history: 2w
+      units: uptime
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '0.01'
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000003
+        expression: last(/LT TrueNAS/system.uptime)<10m
+        name: Host has been restarted
+        priority: INFO
+        manual_close: 'YES'
+    - uuid: 2c68b0d0000240008000000000000004
+      name: System name
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.2.1.1.5.0
+      key: system.name
+      delay: 1h
+      history: 2w
+      value_type: CHAR
+    - uuid: 2c68b0d0000240008000000000000010
+      name: Load average (1m)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-1"]
+      key: system.cpu.load.avg1
+      delay: 1m
+      history: 2w
+      value_type: FLOAT
+    - uuid: 2c68b0d0000240008000000000000011
+      name: Load average (5m)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-5"]
+      key: system.cpu.load.avg5
+      delay: 1m
+      history: 2w
+      value_type: FLOAT
+    - uuid: 2c68b0d0000240008000000000000012
+      name: Load average (15m)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-15"]
+      key: system.cpu.load.avg15
+      delay: 1m
+      history: 2w
+      value_type: FLOAT
+    - uuid: 2c68b0d0000240008000000000000013
+      name: Number of CPUs
+      type: SNMP_AGENT
+      snmp_oid: discovery[{#SNMPVALUE},1.3.6.1.2.1.25.3.3.1.1]
+      key: system.cpu.num
+      delay: 1h
+      history: 2w
+      preprocessing:
+      - type: JAVASCRIPT
+        parameters:
+        - return JSON.parse(value).length;
+    - uuid: 2c68b0d0000240008000000000000020
+      name: Total memory
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.4.5.0
+      key: vm.memory.total
+      delay: 5m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+    - uuid: 2c68b0d0000240008000000000000021
+      name: Free memory
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.4.11.0
+      key: vm.memory.free
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+    - uuid: 2c68b0d0000240008000000000000022
+      name: Memory (buffers)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.4.14.0
+      key: vm.memory.buffers
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+    - uuid: 2c68b0d0000240008000000000000023
+      name: Memory (cached)
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.2021.4.15.0
+      key: vm.memory.cached
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+    - uuid: 2c68b0d0000240008000000000000024
+      name: Available memory
+      type: CALCULATED
+      key: vm.memory.available
+      delay: 1m
+      history: 2w
+      units: B
+      params: last(//vm.memory.free)+last(//vm.memory.buffers)+last(//vm.memory.cached)
+    - uuid: 2c68b0d0000240008000000000000025
+      name: Memory utilization
+      type: CALCULATED
+      key: vm.memory.util
+      delay: 1m
+      history: 2w
+      value_type: FLOAT
+      units: '%'
+      params: (last(//vm.memory.total)-(last(//vm.memory.available)))/last(//vm.memory.total)*100
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000025
+        expression: min(/LT TrueNAS/vm.memory.util,5m)>{$MEMORY.UTIL.MAX}
+        name: High memory utilization
+        priority: AVERAGE
+    - uuid: 2c68b0d0000240008000000000000030
+      name: ARC size
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.50536.1.3.1.0
+      key: truenas.arc.size
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
       tags:
+      - tag: component
+        value: zfs
+    - uuid: 2c68b0d0000240008000000000000031
+      name: ARC data size
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.50536.1.3.3.0
+      key: truenas.arc.data
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+      tags:
+      - tag: component
+        value: zfs
+    - uuid: 2c68b0d0000240008000000000000032
+      name: ARC metadata size
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.50536.1.3.2.0
+      key: truenas.arc.meta
+      delay: 1m
+      history: 2w
+      units: B
+      preprocessing:
+      - type: MULTIPLIER
+        parameters:
+        - '1024'
+      tags:
+      - tag: component
+        value: zfs
+    - uuid: 2c68b0d0000240008000000000000033
+      name: ARC hit ratio
+      type: SNMP_AGENT
+      snmp_oid: 1.3.6.1.4.1.50536.1.3.9.0
+      key: truenas.arc.hit.ratio
+      delay: 1m
+      history: 2w
+      value_type: FLOAT
+      units: '%'
+      tags:
+      - tag: component
+        value: zfs
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000033
+        expression: min(/LT TrueNAS/truenas.arc.hit.ratio,10m)<{$ARC.HITRATIO.MIN.WARN}
+        name: ARC hit ratio is low
+        priority: WARNING
+        description: ARC hit ratio below 80% indicates memory pressure or working
+          set larger than ARC.
+    discovery_rules:
+    - uuid: 2c68b0d0000d40008000000000000001
+      name: ZFS pools discovery
+      type: SNMP_AGENT
+      snmp_oid: discovery[{#POOLNAME},1.3.6.1.4.1.50536.1.1.1.1.2]
+      key: truenas.zfs.pools.discovery
+      delay: 1h
+      lifetime: 30d
+      item_prototypes:
+      - uuid: 2c68b0d0000e40008000000000000001
+        name: 'Pool [{#POOLNAME}]: Health'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.1.1.1.3.{#SNMPINDEX}
+        key: truenas.zpool.health[{#POOLNAME}]
+        delay: 1m
+        history: 2w
+        value_type: CHAR
+        tags:
         - tag: component
-          value: storage
-        - tag: service
-          value: truenas
-        - tag: target
-          value: 'LT TrueNAS'
-      macros:
-        - macro: '{$CPU.UTIL.CRIT}'
-          value: '90'
-        - macro: '{$LOAD_AVG_PER_CPU.MAX.WARN}'
-          value: '1.5'
-        - macro: '{$MEMORY.AVAILABLE.MIN}'
-          value: 100M
-        - macro: '{$MEMORY.UTIL.MAX}'
-          value: '90'
-        - macro: '{$SWAP.PFREE.MIN.WARN}'
-          value: '50'
-        - macro: '{$ZPOOL.PUSED.MAX.WARN}'
-          value: '80'
-        - macro: '{$ZPOOL.PUSED.MAX.CRIT}'
-          value: '90'
-        - macro: '{$ZPOOL.FREE.MIN.WARN}'
-          value: 5G
-        - macro: '{$ZPOOL.FREE.MIN.CRIT}'
-          value: 2G
-        - macro: '{$DATASET.PUSED.MAX.WARN}'
-          value: '80'
-        - macro: '{$DATASET.PUSED.MAX.CRIT}'
-          value: '90'
-        - macro: '{$DATASET.FREE.MIN.WARN}'
-          value: 5G
-        - macro: '{$DATASET.FREE.MIN.CRIT}'
-          value: 2G
-        - macro: '{$DATASET.NAME.MATCHES}'
-          value: .+
-        - macro: '{$DATASET.NAME.NOT_MATCHES}'
-          value: '^(boot-pool|.+\.system(.+)?|\.system)$'
-        - macro: '{$TEMPERATURE.MAX.WARN}'
-          value: '50'
-        - macro: '{$TEMPERATURE.MAX.CRIT}'
-          value: '65'
-        - macro: '{$SNMP.TIMEOUT}'
-          value: 5m
-        - macro: '{$ICMP_LOSS_WARN}'
-          value: '20'
-        - macro: '{$ICMP_RESPONSE_TIME_WARN}'
-          value: '0.15'
-        - macro: '{$SNAPSHOT.AGE.MAX.WARN}'
-          value: 604800
-          description: 'Warn if newest snapshot is older than 7 days (seconds)'
-        - macro: '{$ARC.HITRATIO.MIN.WARN}'
-          value: '80'
-          description: 'ARC hit ratio below this % indicates memory pressure'
-      items:
-        - uuid: 2c68b0d0000240008000000000000001
-          name: 'ICMP ping'
-          type: SIMPLE
-          key: icmpping
-          delay: 1m
-          history: 2w
-          triggers:
-            - uuid: 2c68b0d0000340008000000000000001
-              expression: 'max(/LT TrueNAS/icmpping,#3)=0'
-              name: 'Unavailable by ICMP ping'
-              priority: HIGH
-        - uuid: 2c68b0d0000240008000000000000002
-          name: 'SNMP agent availability'
-          type: INTERNAL
-          key: 'zabbix[host,snmp,available]'
-          delay: 1m
-          history: 2w
-          triggers:
-            - uuid: 2c68b0d0000340008000000000000002
-              expression: 'max(/LT TrueNAS/zabbix[host,snmp,available],{$SNMP.TIMEOUT})=0'
-              name: 'No SNMP data collection'
-              priority: WARNING
-              dependencies:
-                - name: 'Unavailable by ICMP ping'
-                  expression: 'max(/LT TrueNAS/icmpping,#3)=0'
-        - uuid: 2c68b0d0000240008000000000000003
-          name: 'Uptime'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.25.1.1.0
-          key: system.uptime
-          delay: 1m
-          history: 2w
-          units: uptime
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['0.01']
-          triggers:
-            - uuid: 2c68b0d0000340008000000000000003
-              expression: 'last(/LT TrueNAS/system.uptime)<10m'
-              name: 'Host has been restarted'
-              priority: INFO
-              manual_close: 'YES'
-        - uuid: 2c68b0d0000240008000000000000004
-          name: 'System name'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.2.1.1.5.0
-          key: system.name
-          delay: 1h
-          history: 2w
-          value_type: CHAR
-        - uuid: 2c68b0d0000240008000000000000010
-          name: 'Load average (1m)'
-          type: SNMP_AGENT
-          snmp_oid: '1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-1"]'
-          key: system.cpu.load.avg1
-          delay: 1m
-          history: 2w
-          value_type: FLOAT
-        - uuid: 2c68b0d0000240008000000000000011
-          name: 'Load average (5m)'
-          type: SNMP_AGENT
-          snmp_oid: '1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-5"]'
-          key: system.cpu.load.avg5
-          delay: 1m
-          history: 2w
-          value_type: FLOAT
-        - uuid: 2c68b0d0000240008000000000000012
-          name: 'Load average (15m)'
-          type: SNMP_AGENT
-          snmp_oid: '1.3.6.1.4.1.2021.10.1.3["index","1.3.6.1.4.1.2021.10.1.2","Load-15"]'
-          key: system.cpu.load.avg15
-          delay: 1m
-          history: 2w
-          value_type: FLOAT
-        - uuid: 2c68b0d0000240008000000000000013
-          name: 'Number of CPUs'
-          type: SNMP_AGENT
-          snmp_oid: 'discovery[{#SNMPVALUE},1.3.6.1.2.1.25.3.3.1.1]'
-          key: system.cpu.num
-          delay: 1h
-          history: 2w
-          preprocessing:
-            - type: JAVASCRIPT
-              parameters: ['return JSON.parse(value).length;']
-        - uuid: 2c68b0d0000240008000000000000020
-          name: 'Total memory'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.2021.4.5.0
-          key: vm.memory.total
-          delay: 5m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-        - uuid: 2c68b0d0000240008000000000000021
-          name: 'Free memory'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.2021.4.11.0
-          key: vm.memory.free
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-        - uuid: 2c68b0d0000240008000000000000022
-          name: 'Memory (buffers)'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.2021.4.14.0
-          key: vm.memory.buffers
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-        - uuid: 2c68b0d0000240008000000000000023
-          name: 'Memory (cached)'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.2021.4.15.0
-          key: vm.memory.cached
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-        - uuid: 2c68b0d0000240008000000000000024
-          name: 'Available memory'
-          type: CALCULATED
-          key: vm.memory.available
-          delay: 1m
-          history: 2w
-          units: B
-          params: 'last(//vm.memory.free)+last(//vm.memory.buffers)+last(//vm.memory.cached)'
-        - uuid: 2c68b0d0000240008000000000000025
-          name: 'Memory utilization'
-          type: CALCULATED
-          key: vm.memory.util
-          delay: 1m
-          history: 2w
-          value_type: FLOAT
-          units: '%'
-          params: '(last(//vm.memory.total)-(last(//vm.memory.available)))/last(//vm.memory.total)*100'
-          triggers:
-            - uuid: 2c68b0d0000340008000000000000025
-              expression: 'min(/LT TrueNAS/vm.memory.util,5m)>{$MEMORY.UTIL.MAX}'
-              name: 'High memory utilization'
-              priority: AVERAGE
-        - uuid: 2c68b0d0000240008000000000000030
-          name: 'ARC size'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.50536.1.3.1.0
-          key: truenas.arc.size
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-          tags:
-            - tag: component
-              value: zfs
-        - uuid: 2c68b0d0000240008000000000000031
-          name: 'ARC data size'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.50536.1.3.3.0
-          key: truenas.arc.data
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-          tags:
-            - tag: component
-              value: zfs
-        - uuid: 2c68b0d0000240008000000000000032
-          name: 'ARC metadata size'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.50536.1.3.2.0
-          key: truenas.arc.meta
-          delay: 1m
-          history: 2w
-          units: B
-          preprocessing:
-            - type: MULTIPLIER
-              parameters: ['1024']
-          tags:
-            - tag: component
-              value: zfs
-        - uuid: 2c68b0d0000240008000000000000033
-          name: 'ARC hit ratio'
-          type: SNMP_AGENT
-          snmp_oid: 1.3.6.1.4.1.50536.1.3.9.0
-          key: truenas.arc.hit.ratio
-          delay: 1m
-          history: 2w
-          value_type: FLOAT
-          units: '%'
-          tags:
-            - tag: component
-              value: zfs
-          triggers:
-            - uuid: 2c68b0d0000340008000000000000033
-              expression: 'min(/LT TrueNAS/truenas.arc.hit.ratio,10m)<{$ARC.HITRATIO.MIN.WARN}'
-              name: 'ARC hit ratio is low'
-              priority: WARNING
-              description: 'ARC hit ratio below 80% indicates memory pressure or working set larger than ARC.'
-      discovery_rules:
-        - uuid: 2c68b0d0000d40008000000000000001
-          name: 'ZFS pools discovery'
-          type: SNMP_AGENT
-          snmp_oid: 'discovery[{#POOLNAME},1.3.6.1.4.1.50536.1.1.1.1.2]'
-          key: truenas.zfs.pools.discovery
-          delay: 1h
-          lifetime: 30d
-          item_prototypes:
-            - uuid: 2c68b0d0000e40008000000000000001
-              name: 'Pool [{#POOLNAME}]: Health'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.1.1.1.3.{#SNMPINDEX}'
-              key: 'truenas.zpool.health[{#POOLNAME}]'
-              delay: 1m
-              history: 2w
-              value_type: CHAR
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: pool
-                  value: '{#POOLNAME}'
-              trigger_prototypes:
-                - uuid: 2c68b0d0000f40008000000000000001
-                  expression: 'last(/LT TrueNAS/truenas.zpool.health[{#POOLNAME}])<>"ONLINE"'
-                  name: 'Pool [{#POOLNAME}]: Status is not ONLINE'
-                  priority: HIGH
-                  description: 'Pool may be DEGRADED, FAULTED or OFFLINE. Check zpool status immediately.'
-            - uuid: 2c68b0d0000e40008000000000000002
-              name: 'Pool [{#POOLNAME}]: Read operations rate'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.1.1.1.4.{#SNMPINDEX}'
-              key: 'truenas.zpool.read.ops[{#POOLNAME}]'
-              delay: 1m
-              history: 2w
-              value_type: FLOAT
-              units: IOPS
-              preprocessing:
-                - type: CHANGE_PER_SECOND
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: pool
-                  value: '{#POOLNAME}'
-            - uuid: 2c68b0d0000e40008000000000000003
-              name: 'Pool [{#POOLNAME}]: Write operations rate'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.1.1.1.5.{#SNMPINDEX}'
-              key: 'truenas.zpool.write.ops[{#POOLNAME}]'
-              delay: 1m
-              history: 2w
-              value_type: FLOAT
-              units: IOPS
-              preprocessing:
-                - type: CHANGE_PER_SECOND
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: pool
-                  value: '{#POOLNAME}'
-            - uuid: 2c68b0d0000e40008000000000000004
-              name: 'Pool [{#POOLNAME}]: Read rate'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.1.1.1.6.{#SNMPINDEX}'
-              key: 'truenas.zpool.read.bytes[{#POOLNAME}]'
-              delay: 1m
-              history: 2w
-              value_type: FLOAT
-              units: Bps
-              preprocessing:
-                - type: CHANGE_PER_SECOND
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: pool
-                  value: '{#POOLNAME}'
-            - uuid: 2c68b0d0000e40008000000000000005
-              name: 'Pool [{#POOLNAME}]: Write rate'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.1.1.1.7.{#SNMPINDEX}'
-              key: 'truenas.zpool.write.bytes[{#POOLNAME}]'
-              delay: 1m
-              history: 2w
-              value_type: FLOAT
-              units: Bps
-              preprocessing:
-                - type: CHANGE_PER_SECOND
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: pool
-                  value: '{#POOLNAME}'
-        - uuid: 2c68b0d0000d40008000000000000002
-          name: 'ZFS datasets discovery (25.10+ OID)'
-          type: SNMP_AGENT
-          snmp_oid: 'discovery[{#DATASET_NAME},1.3.6.1.4.1.50536.1.6.1.1.2]'
-          key: truenas.zfs.dataset.discovery
-          delay: 1h
-          filter:
-            evaltype: AND
-            conditions:
-              - macro: '{#DATASET_NAME}'
-                value: '{$DATASET.NAME.MATCHES}'
-              - macro: '{#DATASET_NAME}'
-                value: '{$DATASET.NAME.NOT_MATCHES}'
-                operator: NOT_MATCHES_REGEX
-          lifetime: 30d
-          item_prototypes:
-            - uuid: 2c68b0d0000e40008000000000000011
-              name: 'Dataset [{#DATASET_NAME}]: Used space'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.6.1.1.3.{#SNMPINDEX}'
-              key: 'truenas.dataset.used[{#DATASET_NAME}]'
-              delay: 5m
-              history: 2w
-              units: B
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: dataset
-                  value: '{#DATASET_NAME}'
-            - uuid: 2c68b0d0000e40008000000000000012
-              name: 'Dataset [{#DATASET_NAME}]: Available space'
-              type: SNMP_AGENT
-              snmp_oid: '1.3.6.1.4.1.50536.1.6.1.1.4.{#SNMPINDEX}'
-              key: 'truenas.dataset.avail[{#DATASET_NAME}]'
-              delay: 5m
-              history: 2w
-              units: B
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: dataset
-                  value: '{#DATASET_NAME}'
-            - uuid: 2c68b0d0000e40008000000000000013
-              name: 'Dataset [{#DATASET_NAME}]: Total space'
-              type: CALCULATED
-              key: 'truenas.dataset.total[{#DATASET_NAME}]'
-              delay: 5m
-              history: 2w
-              units: B
-              params: 'last(//truenas.dataset.used[{#DATASET_NAME}])+last(//truenas.dataset.avail[{#DATASET_NAME}])'
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: dataset
-                  value: '{#DATASET_NAME}'
-            - uuid: 2c68b0d0000e40008000000000000014
-              name: 'Dataset [{#DATASET_NAME}]: Usage %'
-              type: CALCULATED
-              key: 'truenas.dataset.pused[{#DATASET_NAME}]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: '%'
-              params: 'last(//truenas.dataset.used[{#DATASET_NAME}])*100/(last(//truenas.dataset.used[{#DATASET_NAME}])+last(//truenas.dataset.avail[{#DATASET_NAME}]))'
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: dataset
-                  value: '{#DATASET_NAME}'
-              trigger_prototypes:
-                - uuid: 2c68b0d0000f40008000000000000014
-                  expression: 'min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.WARN:"{#DATASET_NAME}"}'
-                  name: 'Dataset [{#DATASET_NAME}]: High space usage'
-                  priority: WARNING
-                  dependencies:
-                    - name: 'Dataset [{#DATASET_NAME}]: Very high space usage'
-                      expression: 'min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.CRIT:"{#DATASET_NAME}"}'
-                - uuid: 2c68b0d0000f40008000000000000015
-                  expression: 'min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.CRIT:"{#DATASET_NAME}"}'
-                  name: 'Dataset [{#DATASET_NAME}]: Very high space usage'
-                  priority: AVERAGE
-            - uuid: 2c68b0d0000e40008000000000000015
-              name: 'Dataset [{#DATASET_NAME}]: Days to full (forecast)'
-              type: CALCULATED
-              key: 'truenas.dataset.forecast[{#DATASET_NAME}]'
-              delay: 1h
-              history: 2w
-              value_type: FLOAT
-              units: '!days'
-              params: '(last(//truenas.dataset.avail[{#DATASET_NAME}])/(forecast(//truenas.dataset.used[{#DATASET_NAME}],7d,7d)-last(//truenas.dataset.used[{#DATASET_NAME}])))'
-              description: 'Estimated days until dataset is full, based on 7-day linear trend. Returns 0 if not filling.'
-              tags:
-                - tag: component
-                  value: zfs
-                - tag: dataset
-                  value: '{#DATASET_NAME}'
-              trigger_prototypes:
-                - uuid: 2c68b0d0000f40008000000000000016
-                  expression: 'last(/LT TrueNAS/truenas.dataset.forecast[{#DATASET_NAME}])<30 and last(/LT TrueNAS/truenas.dataset.forecast[{#DATASET_NAME}])>0'
-                  name: 'Dataset [{#DATASET_NAME}]: Will fill in less than 30 days'
-                  priority: WARNING
-                  description: 'Based on 7-day trend, this dataset will be full in less than 30 days.'
-      valuemaps:
-        - uuid: 2c68b0d0000940008000000000000001
-          name: 'Service state'
-          mappings:
-            - value: '0'
-              newvalue: Down
-            - value: '1'
-              newvalue: Up
+          value: zfs
+        - tag: pool
+          value: '{#POOLNAME}'
+        trigger_prototypes:
+        - uuid: 2c68b0d0000f40008000000000000001
+          expression: last(/LT TrueNAS/truenas.zpool.health[{#POOLNAME}])<>"ONLINE"
+          name: 'Pool [{#POOLNAME}]: Status is not ONLINE'
+          priority: HIGH
+          description: Pool may be DEGRADED, FAULTED or OFFLINE. Check zpool status
+            immediately.
+      - uuid: 2c68b0d0000e40008000000000000002
+        name: 'Pool [{#POOLNAME}]: Read operations rate'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.1.1.1.4.{#SNMPINDEX}
+        key: truenas.zpool.read.ops[{#POOLNAME}]
+        delay: 1m
+        history: 2w
+        value_type: FLOAT
+        units: IOPS
+        preprocessing:
+        - type: CHANGE_PER_SECOND
+        tags:
+        - tag: component
+          value: zfs
+        - tag: pool
+          value: '{#POOLNAME}'
+      - uuid: 2c68b0d0000e40008000000000000003
+        name: 'Pool [{#POOLNAME}]: Write operations rate'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.1.1.1.5.{#SNMPINDEX}
+        key: truenas.zpool.write.ops[{#POOLNAME}]
+        delay: 1m
+        history: 2w
+        value_type: FLOAT
+        units: IOPS
+        preprocessing:
+        - type: CHANGE_PER_SECOND
+        tags:
+        - tag: component
+          value: zfs
+        - tag: pool
+          value: '{#POOLNAME}'
+      - uuid: 2c68b0d0000e40008000000000000004
+        name: 'Pool [{#POOLNAME}]: Read rate'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.1.1.1.6.{#SNMPINDEX}
+        key: truenas.zpool.read.bytes[{#POOLNAME}]
+        delay: 1m
+        history: 2w
+        value_type: FLOAT
+        units: Bps
+        preprocessing:
+        - type: CHANGE_PER_SECOND
+        tags:
+        - tag: component
+          value: zfs
+        - tag: pool
+          value: '{#POOLNAME}'
+      - uuid: 2c68b0d0000e40008000000000000005
+        name: 'Pool [{#POOLNAME}]: Write rate'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.1.1.1.7.{#SNMPINDEX}
+        key: truenas.zpool.write.bytes[{#POOLNAME}]
+        delay: 1m
+        history: 2w
+        value_type: FLOAT
+        units: Bps
+        preprocessing:
+        - type: CHANGE_PER_SECOND
+        tags:
+        - tag: component
+          value: zfs
+        - tag: pool
+          value: '{#POOLNAME}'
+    - uuid: 2c68b0d0000d40008000000000000002
+      name: ZFS datasets discovery (25.10+ OID)
+      type: SNMP_AGENT
+      snmp_oid: discovery[{#DATASET_NAME},1.3.6.1.4.1.50536.1.6.1.1.2]
+      key: truenas.zfs.dataset.discovery
+      delay: 1h
+      filter:
+        evaltype: AND
+        conditions:
+        - macro: '{#DATASET_NAME}'
+          value: '{$DATASET.NAME.MATCHES}'
+        - macro: '{#DATASET_NAME}'
+          value: '{$DATASET.NAME.NOT_MATCHES}'
+          operator: NOT_MATCHES_REGEX
+      lifetime: 1d
+      item_prototypes:
+      - uuid: 2c68b0d0000e40008000000000000011
+        name: 'Dataset [{#DATASET_NAME}]: Used space'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.6.1.1.3.{#SNMPINDEX}
+        key: truenas.dataset.used[{#DATASET_NAME}]
+        delay: 5m
+        history: 2w
+        units: B
+        tags:
+        - tag: component
+          value: zfs
+        - tag: dataset
+          value: '{#DATASET_NAME}'
+      - uuid: 2c68b0d0000e40008000000000000012
+        name: 'Dataset [{#DATASET_NAME}]: Available space'
+        type: SNMP_AGENT
+        snmp_oid: 1.3.6.1.4.1.50536.1.6.1.1.4.{#SNMPINDEX}
+        key: truenas.dataset.avail[{#DATASET_NAME}]
+        delay: 5m
+        history: 2w
+        units: B
+        tags:
+        - tag: component
+          value: zfs
+        - tag: dataset
+          value: '{#DATASET_NAME}'
+      - uuid: 2c68b0d0000e40008000000000000013
+        name: 'Dataset [{#DATASET_NAME}]: Total space'
+        type: CALCULATED
+        key: truenas.dataset.total[{#DATASET_NAME}]
+        delay: 5m
+        history: 2w
+        units: B
+        params: last(//truenas.dataset.used[{#DATASET_NAME}])+last(//truenas.dataset.avail[{#DATASET_NAME}])
+        tags:
+        - tag: component
+          value: zfs
+        - tag: dataset
+          value: '{#DATASET_NAME}'
+      - uuid: 2c68b0d0000e40008000000000000014
+        name: 'Dataset [{#DATASET_NAME}]: Usage %'
+        type: CALCULATED
+        key: truenas.dataset.pused[{#DATASET_NAME}]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: '%'
+        params: last(//truenas.dataset.used[{#DATASET_NAME}])*100/(last(//truenas.dataset.used[{#DATASET_NAME}])+last(//truenas.dataset.avail[{#DATASET_NAME}]))
+        tags:
+        - tag: component
+          value: zfs
+        - tag: dataset
+          value: '{#DATASET_NAME}'
+        trigger_prototypes:
+        - uuid: 2c68b0d0000f40008000000000000014
+          expression: min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.WARN:"{#DATASET_NAME}"}
+          name: 'Dataset [{#DATASET_NAME}]: High space usage'
+          priority: WARNING
+          dependencies:
+          - name: 'Dataset [{#DATASET_NAME}]: Very high space usage'
+            expression: min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.CRIT:"{#DATASET_NAME}"}
+        - uuid: 2c68b0d0000f40008000000000000015
+          expression: min(/LT TrueNAS/truenas.dataset.pused[{#DATASET_NAME}],5m)>{$DATASET.PUSED.MAX.CRIT:"{#DATASET_NAME}"}
+          name: 'Dataset [{#DATASET_NAME}]: Very high space usage'
+          priority: AVERAGE
+      - uuid: 2c68b0d0000e40008000000000000015
+        name: 'Dataset [{#DATASET_NAME}]: Days to full (forecast)'
+        type: CALCULATED
+        key: truenas.dataset.forecast[{#DATASET_NAME}]
+        delay: 1h
+        history: 2w
+        value_type: FLOAT
+        units: '!days'
+        params: 7*last(//truenas.dataset.avail[{#DATASET_NAME}])/(forecast(//truenas.dataset.used[{#DATASET_NAME}],7d,1d)-last(//truenas.dataset.used[{#DATASET_NAME}]))
+        description: Estimated days until dataset is full, based on 7-day linear trend.
+          Returns 0 if not filling.
+        tags:
+        - tag: component
+          value: zfs
+        - tag: dataset
+          value: '{#DATASET_NAME}'
+        trigger_prototypes:
+        - uuid: 2c68b0d0000f40008000000000000016
+          expression: last(/LT TrueNAS/truenas.dataset.forecast[{#DATASET_NAME}])<30
+            and last(/LT TrueNAS/truenas.dataset.forecast[{#DATASET_NAME}])>0
+          name: 'Dataset [{#DATASET_NAME}]: Will fill in less than 30 days'
+          priority: WARNING
+          description: Based on 7-day trend, this dataset will be full in less than
+            30 days.
+        preprocessing:
+        - type: CHECK_NOT_SUPPORTED
+          parameters:
+          - '-1'
+          error_handler: CUSTOM_VALUE
+          error_handler_params: '0'
+        - type: JAVASCRIPT
+          parameters:
+          - 'var v = parseFloat(value);
+
+            if (!isFinite(v) || v <= 0) return 0;
+
+            if (v > 36500) return 36500;
+
+            return Math.round(v * 10) / 10;'
+    valuemaps:
+    - uuid: 2c68b0d0000940008000000000000001
+      name: Service state
+      mappings:
+      - value: '0'
+        newvalue: Down
+      - value: '1'
+        newvalue: Up
