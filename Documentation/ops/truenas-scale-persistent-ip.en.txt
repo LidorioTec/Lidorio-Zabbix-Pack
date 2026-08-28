@@ -1,0 +1,98 @@
+================================================================================
+TRUENAS SCALE — WHY STATIC IP IS LOST ON REBOOT AND HOW TO FIX IT FOR GOOD
+LIDORIO TECH | Lidorio-Zabbix-Pack | Operational document (lab)
+Environment: TrueNAS SCALE 25.10.6 | truenas01 | 192.168.2.217/24 | gw 192.168.2.1
+Date: 2026-08-27
+================================================================================
+
+1. SYMPTOM
+--------------------------------------------------------------------------------
+A static IP configured via shell commands (ip addr add ...) works until the
+next reboot. After restart, the VM reverts to the previous/DHCP IP
+(e.g., 192.168.2.109) and all manual network configuration disappears.
+
+2. ROOT CAUSE
+--------------------------------------------------------------------------------
+TrueNAS SCALE does NOT use /etc/network/interfaces nor NetworkManager as the
+source of truth. It manages the network through its own middleware database
+(/data/freenas.sqlite) and REGENERATES the network configuration at every boot.
+
+Commands like "ip addr", "ip link" or "ip route" only change the VOLATILE
+state of the kernel (runtime). None of this is persisted into the middleware
+database, therefore nothing survives a reboot.
+
+3. WRONG SOLUTION (volatile — do not use to fix IP)
+--------------------------------------------------------------------------------
+  ip addr flush dev enp0s3
+  ip addr add 192.168.2.217/24 dev enp0s3
+  ip link set enp0s3 up
+  -> Valid only until reboot. Useful only as an INTERMEDIATE step (item 4.1).
+
+4. CORRECT SOLUTION (persistent)
+--------------------------------------------------------------------------------
+The configuration must be saved in the middleware database, via the Web UI or
+midclt. midclt is recommended when the Web UI fails validation.
+
+4.1) Connect and apply a temporary IP (required for the gateway validation
+     to pass in the next steps):
+
+  ssh truenas_admin@<CURRENT_IP>
+  sudo -i
+  ip addr flush dev enp0s3
+  ip addr add 192.168.2.217/24 dev enp0s3
+  ip link set enp0s3 up
+  ping -c 2 192.168.2.1
+
+  (Confirm interface name with: ip -br link)
+
+4.2) Persist into the TrueNAS database:
+
+  midclt call interface.update enp0s3 \
+    '{"ipv4_dhcp": false, "aliases": [{"address": "192.168.2.217", "netmask": 24}]}'
+
+  midclt call network.configuration.update \
+    '{"ipv4gateway": "192.168.2.1", "nameserver1": "192.168.2.1", "hostname": "truenas01"}'
+
+  midclt call interface.commit
+  (If "interface.commit" does not exist on your version: just reboot — the
+   database was already updated and the reboot applies the changes.)
+
+4.3) Alternative via Web UI (works if the temporary IP is active):
+
+  Network -> Interfaces -> enp0s3 -> Edit
+    - Uncheck DHCP
+    - IPv4: 192.168.2.217 / 24
+    - Save
+  Network -> Global Configuration
+    - Gateway: 192.168.2.1 | DNS: 192.168.2.1 | Hostname: truenas01
+    - Save
+
+5. VALIDATION (the real proof)
+--------------------------------------------------------------------------------
+  reboot
+  # From another host:
+  ping -c 3 192.168.2.217
+  ssh truenas_admin@192.168.2.217
+  -> If it responds after reboot, the IP is truly fixed.
+
+6. KNOWN PITFALLS
+--------------------------------------------------------------------------------
+- "Gateway X is unreachable" when saving in the Web UI: the validation tests
+  the gateway against the ACTIVE network. Without an IP on the interface,
+  it fails. Apply the temporary IP (4.1) before saving.
+- "Please specify the IP address in CIDR notation" on the console: provide
+  the IP with the mask together (e.g., 192.168.2.217/24), never just the
+  address.
+- SSH "Permission denied (publickey)": on SCALE 25.x, password login requires
+  the user's group in Services -> SSH -> "Password Login Groups" (or use an
+  SSH key / root with "Log in as Root with Password").
+- Do NOT edit files under /etc for networking: they are regenerated and
+  overwritten by the middleware.
+
+7. GOLDEN RULE
+--------------------------------------------------------------------------------
+On TrueNAS SCALE, the network is configured ONLY via the Web UI or midclt
+(interface.update + network.configuration.update). Everything else is volatile.
+
+================================================================================
+END OF DOCUMENT
