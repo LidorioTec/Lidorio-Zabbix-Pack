@@ -1,316 +1,361 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-    - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
-      name: 'Lidorio Tech'
+  - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
+    name: Lidorio Tech
   templates:
-    - uuid: 1b4e05c0000140008000000000000001
-      template: 'LT Bareos'
-      name: 'LT Bareos'
-      description: 'Bareos backup suite monitoring - LIDORIO TECH standard. Inherits LT Linux Base. Requires lt_bareos.py collector and UserParameters on the Bareos server.'
-      templates:
-        - name: 'LT Linux Base'
-      groups:
-        - name: 'Lidorio Tech'
-      items:
-        - uuid: 1b4e05c0000240008000000000000002
-          name: 'Bareos catalog connectivity'
-          key: bareos.catalog.ping
-          history: 2w
-          tags:
-            - tag: component
-              value: catalog
-          triggers:
-            - uuid: 1b4e05c0000640008000000000000006
-              expression: 'last(/LT Bareos/bareos.catalog.ping)=0'
-              name: 'Bareos catalog is unreachable on {HOST.NAME}'
-              priority: HIGH
-              tags:
-                - tag: component
-                  value: catalog
-        - uuid: 1b4e05c0000340008000000000000003
-          name: 'Bareos Director process count'
-          key: 'proc.num[bareos-dir]'
-          history: 2w
-          tags:
-            - tag: component
-              value: daemon
-          triggers:
-            - uuid: 1b4e05c0000740008000000000000007
-              expression: 'last(/LT Bareos/proc.num[bareos-dir])=0'
-              name: 'Bareos Director is DOWN on {HOST.NAME}'
-              priority: DISASTER
-              tags:
-                - tag: component
-                  value: daemon
-        - uuid: 1b4e05c0000540008000000000000005
-          name: 'Bareos File Daemon process count'
-          key: 'proc.num[bareos-fd]'
-          history: 2w
-          tags:
-            - tag: component
-              value: daemon
-          triggers:
-            - uuid: 1b4e05c0000940008000000000000009
-              expression: 'last(/LT Bareos/proc.num[bareos-fd])=0'
-              name: 'Bareos File Daemon is DOWN on {HOST.NAME}'
-              priority: HIGH
-              tags:
-                - tag: component
-                  value: daemon
-        - uuid: 1b4e05c0000440008000000000000004
-          name: 'Bareos Storage Daemon process count'
-          key: 'proc.num[bareos-sd]'
-          history: 2w
-          tags:
-            - tag: component
-              value: daemon
-          triggers:
-            - uuid: 1b4e05c0000840008000000000000008
-              expression: 'last(/LT Bareos/proc.num[bareos-sd])=0'
-              name: 'Bareos Storage Daemon is DOWN on {HOST.NAME}'
-              priority: DISASTER
-              tags:
-                - tag: component
-                  value: daemon
-      discovery_rules:
-        - uuid: 1b4e05c0001040008000000000000010
-          name: 'Bareos clients discovery'
-          key: bareos.clients.discovery
-          delay: 1h
-          item_prototypes:
-            - uuid: 1b4e05c0001240008000000000000012
-              name: 'Bareos client {#CLIENT}: age of last good backup (days)'
-              key: 'bareos.client[{#CLIENT},agegood]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: days
-              tags:
-                - tag: component
-                  value: client
-              trigger_prototypes:
-                - uuid: 1b4e05c0001440008000000000000014
-                  expression: 'last(/LT Bareos/bareos.client[{#CLIENT},agegood])>{$BAREOS.CLIENT.AGE.WARN}'
-                  name: 'Bareos client {#CLIENT}: no successful backup for {$BAREOS.CLIENT.AGE.WARN}+ days'
-                  priority: AVERAGE
-                - uuid: 1b4e05c0001540008000000000000015
-                  expression: 'last(/LT Bareos/bareos.client[{#CLIENT},agegood])>{$BAREOS.CLIENT.AGE.HIGH}'
-                  name: 'Bareos client {#CLIENT}: UNPROTECTED - no successful backup for {$BAREOS.CLIENT.AGE.HIGH}+ days'
-                  priority: HIGH
-            - uuid: 1b4e05c0001340008000000000000013
-              name: 'Bareos client {#CLIENT}: last good backup time'
-              key: 'bareos.client[{#CLIENT},lastgood]'
-              delay: 5m
-              history: 2w
-              units: unixtime
-              tags:
-                - tag: component
-                  value: client
-            - uuid: 1b4e05c0002740008000000000000027
-              name: 'Bareos client {#CLIENT}: Differential backup age (days)'
-              key: 'bareos.job[{#CLIENT},D,age]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: days
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0002940008000000000000029
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},D,age])>{$BAREOS.DIFF.AGE.WARN}'
-                  name: 'Bareos client {#CLIENT}: last Differential backup older than {$BAREOS.DIFF.AGE.WARN} days'
-                  priority: WARNING
-            - uuid: 1b4e05c0002540008000000000000025
-              name: 'Bareos client {#CLIENT}: Differential backup bytes'
-              key: 'bareos.job[{#CLIENT},D,bytes]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: B
-              tags:
-                - tag: component
-                  value: job
-            - uuid: 1b4e05c0002640008000000000000026
-              name: 'Bareos client {#CLIENT}: Differential backup duration'
-              key: 'bareos.job[{#CLIENT},D,dur]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: s
-              tags:
-                - tag: component
-                  value: job
-            - uuid: 1b4e05c0002440008000000000000024
-              name: 'Bareos client {#CLIENT}: Differential backup status'
-              key: 'bareos.job[{#CLIENT},D,status]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0002840008000000000000028
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},D,status])>0'
-                  name: 'Bareos client {#CLIENT}: Differential backup FAILED'
-                  priority: AVERAGE
-            - uuid: 1b4e05c0001940008000000000000019
-              name: 'Bareos client {#CLIENT}: Full backup age (days)'
-              key: 'bareos.job[{#CLIENT},F,age]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: days
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0002240008000000000000022
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},F,age])>{$BAREOS.FULL.AGE.HIGH}'
-                  name: 'Bareos client {#CLIENT}: last Full backup older than {$BAREOS.FULL.AGE.HIGH} days'
-                  priority: HIGH
-                - uuid: 1b4e05c0002140008000000000000021
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},F,age])>{$BAREOS.FULL.AGE.WARN}'
-                  name: 'Bareos client {#CLIENT}: last Full backup older than {$BAREOS.FULL.AGE.WARN} days'
-                  priority: WARNING
-            - uuid: 1b4e05c0001740008000000000000017
-              name: 'Bareos client {#CLIENT}: Full backup bytes'
-              key: 'bareos.job[{#CLIENT},F,bytes]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: B
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0002340008000000000000023
-                  expression: '(last(/LT Bareos/bareos.job[{#CLIENT},F,bytes])>0) and (last(/LT Bareos/bareos.job[{#CLIENT},F,bytes],#2)>0) and (last(/LT Bareos/bareos.job[{#CLIENT},F,bytes])<last(/LT Bareos/bareos.job[{#CLIENT},F,bytes],#2)*{$BAREOS.SIZE.DROP.PCT}/100)'
-                  name: 'Bareos client {#CLIENT}: Full backup size dropped abruptly (continuity indicator)'
-                  priority: AVERAGE
-            - uuid: 1b4e05c0001840008000000000000018
-              name: 'Bareos client {#CLIENT}: Full backup duration'
-              key: 'bareos.job[{#CLIENT},F,dur]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: s
-              tags:
-                - tag: component
-                  value: job
-            - uuid: 1b4e05c0001640008000000000000016
-              name: 'Bareos client {#CLIENT}: Full backup status'
-              key: 'bareos.job[{#CLIENT},F,status]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0002040008000000000000020
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},F,status])>0'
-                  name: 'Bareos client {#CLIENT}: Full backup FAILED'
-                  priority: HIGH
-            - uuid: 1b4e05c0003340008000000000000033
-              name: 'Bareos client {#CLIENT}: Incremental backup age (days)'
-              key: 'bareos.job[{#CLIENT},I,age]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: days
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0003540008000000000000035
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},I,age])>{$BAREOS.INC.AGE.WARN}'
-                  name: 'Bareos client {#CLIENT}: last Incremental backup older than {$BAREOS.INC.AGE.WARN} days'
-                  priority: WARNING
-            - uuid: 1b4e05c0003140008000000000000031
-              name: 'Bareos client {#CLIENT}: Incremental backup bytes'
-              key: 'bareos.job[{#CLIENT},I,bytes]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: B
-              tags:
-                - tag: component
-                  value: job
-            - uuid: 1b4e05c0003240008000000000000032
-              name: 'Bareos client {#CLIENT}: Incremental backup duration'
-              key: 'bareos.job[{#CLIENT},I,dur]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              units: s
-              tags:
-                - tag: component
-                  value: job
-            - uuid: 1b4e05c0003040008000000000000030
-              name: 'Bareos client {#CLIENT}: Incremental backup status'
-              key: 'bareos.job[{#CLIENT},I,status]'
-              delay: 5m
-              history: 2w
-              value_type: FLOAT
-              tags:
-                - tag: component
-                  value: job
-              trigger_prototypes:
-                - uuid: 1b4e05c0003440008000000000000034
-                  expression: 'last(/LT Bareos/bareos.job[{#CLIENT},I,status])>0'
-                  name: 'Bareos client {#CLIENT}: Incremental backup FAILED'
-                  priority: WARNING
-        - uuid: 1b4e05c0001140008000000000000011
-          name: 'Bareos pools discovery'
-          key: bareos.pools.discovery
-          delay: 1h
-          item_prototypes:
-            - uuid: 1b4e05c0003740008000000000000037
-              name: 'Bareos pool {#POOL}: used bytes'
-              key: 'bareos.pool[{#POOL},bytes]'
-              delay: 5m
-              history: 2w
-              units: B
-              tags:
-                - tag: component
-                  value: storage
-            - uuid: 1b4e05c0003640008000000000000036
-              name: 'Bareos pool {#POOL}: volume count'
-              key: 'bareos.pool[{#POOL},volumes]'
-              delay: 5m
-              history: 2w
-              tags:
-                - tag: component
-                  value: storage
-              trigger_prototypes:
-                - uuid: 1b4e05c0003840008000000000000038
-                  expression: 'last(/LT Bareos/bareos.pool[{#POOL},volumes])<{$BAREOS.SCRATCH.MIN.VOLUMES}'
-                  name: 'Bareos pool {#POOL}: volume count below minimum'
-                  priority: WARNING
+  - uuid: 1b4e05c0000140008000000000000001
+    template: LT Bareos
+    name: LT Bareos
+    description: Bareos backup suite monitoring - LIDORIO TECH standard. Inherits
+      LT Linux Base. Requires lt_bareos.py collector and UserParameters on the Bareos
+      server.
+    templates:
+    - name: LT Linux Base
+    groups:
+    - name: Lidorio Tech
+    items:
+    - uuid: 1b4e05c0000240008000000000000002
+      name: Bareos catalog connectivity
+      key: bareos.catalog.ping
+      history: 2w
       tags:
+      - tag: component
+        value: catalog
+      triggers:
+      - uuid: 1b4e05c0000640008000000000000006
+        expression: last(/LT Bareos/bareos.catalog.ping)=0
+        name: Bareos catalog is unreachable on {HOST.NAME}
+        priority: HIGH
+        tags:
+        - tag: component
+          value: catalog
+    - uuid: 1b4e05c0000340008000000000000003
+      name: Bareos Director process count
+      key: proc.num[bareos-dir]
+      history: 2w
+      tags:
+      - tag: component
+        value: daemon
+      triggers:
+      - uuid: 1b4e05c0000740008000000000000007
+        expression: last(/LT Bareos/proc.num[bareos-dir])=0
+        name: Bareos Director is DOWN on {HOST.NAME}
+        priority: DISASTER
+        tags:
+        - tag: component
+          value: daemon
+    - uuid: 1b4e05c0000540008000000000000005
+      name: Bareos File Daemon process count
+      key: proc.num[bareos-fd]
+      history: 2w
+      tags:
+      - tag: component
+        value: daemon
+      triggers:
+      - uuid: 1b4e05c0000940008000000000000009
+        expression: last(/LT Bareos/proc.num[bareos-fd])=0
+        name: Bareos File Daemon is DOWN on {HOST.NAME}
+        priority: HIGH
+        tags:
+        - tag: component
+          value: daemon
+    - uuid: 1b4e05c0000440008000000000000004
+      name: Bareos Storage Daemon process count
+      key: proc.num[bareos-sd]
+      history: 2w
+      tags:
+      - tag: component
+        value: daemon
+      triggers:
+      - uuid: 1b4e05c0000840008000000000000008
+        expression: last(/LT Bareos/proc.num[bareos-sd])=0
+        name: Bareos Storage Daemon is DOWN on {HOST.NAME}
+        priority: DISASTER
+        tags:
+        - tag: component
+          value: daemon
+    discovery_rules:
+    - uuid: 1b4e05c0001040008000000000000010
+      name: Bareos clients discovery
+      key: bareos.clients.discovery
+      delay: 1h
+      item_prototypes:
+      - uuid: 1b4e05c0001240008000000000000012
+        name: 'Bareos client {#CLIENT}: age of last good backup (days)'
+        key: bareos.client[{#CLIENT},agegood]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: days
+        tags:
+        - tag: component
+          value: client
+        trigger_prototypes:
+        - uuid: 1b4e05c0001440008000000000000014
+          expression: last(/LT Bareos/bareos.client[{#CLIENT},agegood])>{$BAREOS.CLIENT.AGE.WARN}
+          name: 'Bareos client {#CLIENT}: no successful backup for {$BAREOS.CLIENT.AGE.WARN}+
+            days'
+          priority: AVERAGE
+        - uuid: 1b4e05c0001540008000000000000015
+          expression: last(/LT Bareos/bareos.client[{#CLIENT},agegood])>{$BAREOS.CLIENT.AGE.HIGH}
+          name: 'Bareos client {#CLIENT}: UNPROTECTED - no successful backup for {$BAREOS.CLIENT.AGE.HIGH}+
+            days'
+          priority: HIGH
+      - uuid: 1b4e05c0001340008000000000000013
+        name: 'Bareos client {#CLIENT}: last good backup time'
+        key: bareos.client[{#CLIENT},lastgood]
+        delay: 5m
+        history: 2w
+        units: unixtime
+        tags:
+        - tag: component
+          value: client
+      - uuid: 1b4e05c0002740008000000000000027
+        name: 'Bareos client {#CLIENT}: Differential backup age (days)'
+        key: bareos.job[{#CLIENT},D,age]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: days
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0002940008000000000000029
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},D,age])>{$BAREOS.DIFF.AGE.WARN}
+          name: 'Bareos client {#CLIENT}: last Differential backup older than {$BAREOS.DIFF.AGE.WARN}
+            days'
+          priority: WARNING
+      - uuid: 1b4e05c0002540008000000000000025
+        name: 'Bareos client {#CLIENT}: Differential backup bytes'
+        key: bareos.job[{#CLIENT},D,bytes]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: B
+        tags:
+        - tag: component
+          value: job
+      - uuid: 1b4e05c0002640008000000000000026
+        name: 'Bareos client {#CLIENT}: Differential backup duration'
+        key: bareos.job[{#CLIENT},D,dur]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: s
+        tags:
+        - tag: component
+          value: job
+      - uuid: 1b4e05c0002440008000000000000024
+        name: 'Bareos client {#CLIENT}: Differential backup status'
+        key: bareos.job[{#CLIENT},D,status]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0002840008000000000000028
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},D,status])>0
+          name: 'Bareos client {#CLIENT}: Differential backup FAILED'
+          priority: AVERAGE
+      - uuid: 1b4e05c0001940008000000000000019
+        name: 'Bareos client {#CLIENT}: Full backup age (days)'
+        key: bareos.job[{#CLIENT},F,age]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: days
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0002240008000000000000022
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},F,age])>{$BAREOS.FULL.AGE.HIGH}
+          name: 'Bareos client {#CLIENT}: last Full backup older than {$BAREOS.FULL.AGE.HIGH}
+            days'
+          priority: HIGH
+        - uuid: 1b4e05c0002140008000000000000021
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},F,age])>{$BAREOS.FULL.AGE.WARN}
+          name: 'Bareos client {#CLIENT}: last Full backup older than {$BAREOS.FULL.AGE.WARN}
+            days'
+          priority: WARNING
+      - uuid: 1b4e05c0001740008000000000000017
+        name: 'Bareos client {#CLIENT}: Full backup bytes'
+        key: bareos.job[{#CLIENT},F,bytes]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: B
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0002340008000000000000023
+          expression: (last(/LT Bareos/bareos.job[{#CLIENT},F,bytes])>0) and (last(/LT
+            Bareos/bareos.job[{#CLIENT},F,bytes],#2)>0) and (last(/LT Bareos/bareos.job[{#CLIENT},F,bytes])<last(/LT
+            Bareos/bareos.job[{#CLIENT},F,bytes],#2)*{$BAREOS.SIZE.DROP.PCT}/100)
+          name: 'Bareos client {#CLIENT}: Full backup size dropped abruptly (continuity
+            indicator)'
+          priority: AVERAGE
+      - uuid: 1b4e05c0001840008000000000000018
+        name: 'Bareos client {#CLIENT}: Full backup duration'
+        key: bareos.job[{#CLIENT},F,dur]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: s
+        tags:
+        - tag: component
+          value: job
+      - uuid: 1b4e05c0001640008000000000000016
+        name: 'Bareos client {#CLIENT}: Full backup status'
+        key: bareos.job[{#CLIENT},F,status]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0002040008000000000000020
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},F,status])>0
+          name: 'Bareos client {#CLIENT}: Full backup FAILED'
+          priority: HIGH
+      - uuid: 1b4e05c0003340008000000000000033
+        name: 'Bareos client {#CLIENT}: Incremental backup age (days)'
+        key: bareos.job[{#CLIENT},I,age]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: days
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0003540008000000000000035
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},I,age])>{$BAREOS.INC.AGE.WARN}
+          name: 'Bareos client {#CLIENT}: last Incremental backup older than {$BAREOS.INC.AGE.WARN}
+            days'
+          priority: WARNING
+      - uuid: 1b4e05c0003140008000000000000031
+        name: 'Bareos client {#CLIENT}: Incremental backup bytes'
+        key: bareos.job[{#CLIENT},I,bytes]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: B
+        tags:
+        - tag: component
+          value: job
+      - uuid: 1b4e05c0003240008000000000000032
+        name: 'Bareos client {#CLIENT}: Incremental backup duration'
+        key: bareos.job[{#CLIENT},I,dur]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        units: s
+        tags:
+        - tag: component
+          value: job
+      - uuid: 1b4e05c0003040008000000000000030
+        name: 'Bareos client {#CLIENT}: Incremental backup status'
+        key: bareos.job[{#CLIENT},I,status]
+        delay: 5m
+        history: 2w
+        value_type: FLOAT
+        tags:
+        - tag: component
+          value: job
+        trigger_prototypes:
+        - uuid: 1b4e05c0003440008000000000000034
+          expression: last(/LT Bareos/bareos.job[{#CLIENT},I,status])>0
+          name: 'Bareos client {#CLIENT}: Incremental backup FAILED'
+          priority: WARNING
+      - uuid: 1a68b0d0000e40008000000000000021
+        name: 'Client {#CLIENT}: Last successful backup'
+        key: bareos.client.last.successful.backup[{#CLIENT}]
+        delay: 1h
+        history: 2w
+        units: unixtime
+        description: Unix timestamp of the last successful backup job (status T, type
+          B).
+        tags:
         - tag: component
           value: backup
-        - tag: service
-          value: bareos
-        - tag: target
-          value: 'LT Bareos'
-      macros:
-        - macro: '{$BAREOS.CLIENT.AGE.HIGH}'
-          value: '14'
-        - macro: '{$BAREOS.CLIENT.AGE.WARN}'
-          value: '7'
-        - macro: '{$BAREOS.DIFF.AGE.WARN}'
-          value: '3'
-        - macro: '{$BAREOS.FULL.AGE.HIGH}'
-          value: '14'
-        - macro: '{$BAREOS.FULL.AGE.WARN}'
-          value: '7'
-        - macro: '{$BAREOS.INC.AGE.WARN}'
-          value: '2'
-        - macro: '{$BAREOS.SCRATCH.MIN.VOLUMES}'
-          value: '0'
-        - macro: '{$BAREOS.SIZE.DROP.PCT}'
-          value: '50'
+      - uuid: 1a68b0d0000e40008000000000000022
+        name: 'Client {#CLIENT}: Days since last successful backup'
+        type: CALCULATED
+        key: bareos.client.backup.age[{#CLIENT}]
+        delay: 1h
+        history: 2w
+        value_type: FLOAT
+        units: '!days'
+        params: (now()-last(//bareos.client.last.successful.backup[{#CLIENT}]))/86400
+        tags:
+        - tag: component
+          value: backup
+        trigger_prototypes:
+        - uuid: 1a68b0d0000f40008000000000000022
+          expression: last(/LT Bareos/bareos.client.backup.age[{#CLIENT}])>{$BAREOS.CLIENT.MAX_AGE}
+          name: 'Client {#CLIENT}: no successful backup for {$BAREOS.CLIENT.MAX_AGE}+
+            days (RPO violation)'
+          priority: HIGH
+          description: 'RPO violation: client has no successful backup within {$BAREOS.CLIENT.MAX_AGE}
+            days.'
+    - uuid: 1b4e05c0001140008000000000000011
+      name: Bareos pools discovery
+      key: bareos.pools.discovery
+      delay: 1h
+      item_prototypes:
+      - uuid: 1b4e05c0003740008000000000000037
+        name: 'Bareos pool {#POOL}: used bytes'
+        key: bareos.pool[{#POOL},bytes]
+        delay: 5m
+        history: 2w
+        units: B
+        tags:
+        - tag: component
+          value: storage
+      - uuid: 1b4e05c0003640008000000000000036
+        name: 'Bareos pool {#POOL}: volume count'
+        key: bareos.pool[{#POOL},volumes]
+        delay: 5m
+        history: 2w
+        tags:
+        - tag: component
+          value: storage
+        trigger_prototypes:
+        - uuid: 1b4e05c0003840008000000000000038
+          expression: last(/LT Bareos/bareos.pool[{#POOL},volumes])<{$BAREOS.SCRATCH.MIN.VOLUMES}
+          name: 'Bareos pool {#POOL}: volume count below minimum'
+          priority: WARNING
+    tags:
+    - tag: component
+      value: backup
+    - tag: service
+      value: bareos
+    - tag: target
+      value: LT Bareos
+    macros:
+    - macro: '{$BAREOS.CLIENT.AGE.HIGH}'
+      value: '14'
+    - macro: '{$BAREOS.CLIENT.AGE.WARN}'
+      value: '7'
+    - macro: '{$BAREOS.DIFF.AGE.WARN}'
+      value: '3'
+    - macro: '{$BAREOS.FULL.AGE.HIGH}'
+      value: '14'
+    - macro: '{$BAREOS.FULL.AGE.WARN}'
+      value: '7'
+    - macro: '{$BAREOS.INC.AGE.WARN}'
+      value: '2'
+    - macro: '{$BAREOS.SCRATCH.MIN.VOLUMES}'
+      value: '0'
+    - macro: '{$BAREOS.SIZE.DROP.PCT}'
+      value: '50'
+    - macro: '{$BAREOS.CLIENT.MAX_AGE}'
+      value: '7'
+      description: Max days since last successful backup per client.

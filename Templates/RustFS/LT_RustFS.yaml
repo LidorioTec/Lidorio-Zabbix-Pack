@@ -1,203 +1,215 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-    - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
-      name: 'Lidorio Tech'
+  - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
+    name: Lidorio Tech
   templates:
-    - uuid: 2b68b0d0000140008000000000000001
-      template: 'LT RustFS'
-      name: 'LT RustFS'
-      description: 'RustFS S3 object storage monitoring - LIDORIO TECH standard. Health endpoints (no auth) + rc CLI for bucket metrics.'
-      groups:
-        - name: 'Lidorio Tech'
-      items:
-        - uuid: 2b68b0d0000c4000800000000000000c
-          name: 'RustFS data usage'
-          key: 'rustfs.capacity[pct]'
-          delay: 5m
-          history: 2w
-          value_type: FLOAT
-          units: '%'
-          description: 'Percentage of the data volume used.'
-          tags:
-            - tag: component
-              value: capacity
-          triggers:
-            - uuid: 2b68b0d0001540008000000000000015
-              expression: 'last(/LT RustFS/rustfs.capacity[pct])>{$RUSTFS.CAPACITY.HIGH}'
-              name: 'RustFS data volume is critically full on {HOST.NAME}'
-              priority: HIGH
-              tags:
-                - tag: component
-                  value: capacity
-            - uuid: 2b68b0d0001440008000000000000014
-              expression: 'last(/LT RustFS/rustfs.capacity[pct])>{$RUSTFS.CAPACITY.WARN}'
-              name: 'RustFS data volume is filling up on {HOST.NAME}'
-              priority: WARNING
-              tags:
-                - tag: component
-                  value: capacity
-        - uuid: 2b68b0d0000b4000800000000000000b
-          name: 'RustFS data total'
-          key: 'rustfs.capacity[total]'
-          delay: 1h
-          history: 2w
-          units: B
-          description: 'Total bytes of the RustFS data volume.'
-          tags:
-            - tag: component
-              value: capacity
-        - uuid: 2b68b0d0000a4000800000000000000a
-          name: 'RustFS data used'
-          key: 'rustfs.capacity[used]'
-          delay: 5m
-          history: 2w
-          units: B
-          description: 'Bytes used by RustFS data volume.'
-          tags:
-            - tag: component
-              value: capacity
-        - uuid: 2b68b0d0000840008000000000000008
-          name: 'RustFS cluster iam'
-          key: 'rustfs.cluster[iam]'
-          history: 2w
-          description: '1 = iam connected, 0 = not connected.'
-          tags:
-            - tag: component
-              value: cluster
-        - uuid: 2b68b0d0000940008000000000000009
-          name: 'RustFS cluster lock'
-          key: 'rustfs.cluster[lock]'
-          history: 2w
-          description: '1 = lock connected, 0 = not connected.'
-          tags:
-            - tag: component
-              value: cluster
-        - uuid: 2b68b0d0000640008000000000000006
-          name: 'RustFS cluster status'
-          key: 'rustfs.cluster[status]'
-          history: 2w
-          description: '1 = cluster ok, 0 = degraded, -1 = unreachable.'
-          tags:
-            - tag: component
-              value: cluster
-          triggers:
-            - uuid: 2b68b0d0001340008000000000000013
-              expression: 'last(/LT RustFS/rustfs.cluster[status])=0'
-              name: 'RustFS cluster degraded on {HOST.NAME}'
-              priority: HIGH
-              description: 'Cluster status is not ok (storage/iam/lock issue).'
-              tags:
-                - tag: component
-                  value: cluster
-        - uuid: 2b68b0d0000740008000000000000007
-          name: 'RustFS cluster storage'
-          key: 'rustfs.cluster[storage]'
-          history: 2w
-          description: '1 = storage connected, 0 = not connected.'
-          tags:
-            - tag: component
-              value: cluster
-        - uuid: 2b68b0d0000440008000000000000004
-          name: 'RustFS health ready'
-          key: 'rustfs.health[ready]'
-          history: 2w
-          description: '1 = ready true, 0 = not ready, -1 = unreachable.'
-          tags:
-            - tag: component
-              value: health
-        - uuid: 2b68b0d0000340008000000000000003
-          name: 'RustFS health status'
-          key: 'rustfs.health[status]'
-          history: 2w
-          description: '1 = status ok, 0 = not ok, -1 = unreachable.'
-          tags:
-            - tag: component
-              value: health
-        - uuid: 2b68b0d0000540008000000000000005
-          name: 'RustFS version'
-          key: 'rustfs.health[version]'
-          delay: 1h
-          history: 2w
-          value_type: CHAR
-          trends: '0'
-          description: 'RustFS server version.'
-          tags:
-            - tag: component
-              value: health
-        - uuid: 2b68b0d0000240008000000000000002
-          name: 'RustFS ping'
-          key: rustfs.ping
-          history: 2w
-          description: '1 = RustFS /health endpoint responding with status ok.'
-          tags:
-            - tag: component
-              value: health
-          triggers:
-            - uuid: 2b68b0d0001240008000000000000012
-              expression: 'last(/LT RustFS/rustfs.ping)=0'
-              name: 'RustFS is unreachable on {HOST.NAME}'
-              priority: HIGH
-              description: 'The /health endpoint is not responding with status ok.'
-              tags:
-                - tag: component
-                  value: health
-      discovery_rules:
-        - uuid: 2b68b0d0000d4000800000000000000d
-          name: 'RustFS buckets discovery'
-          key: rustfs.discover.buckets
-          delay: 1h
-          description: 'Discovers S3 buckets via rc CLI.'
-          item_prototypes:
-            - uuid: 2b68b0d0001040008000000000000010
-              name: 'Bucket {#BUCKET_NAME}: age'
-              key: 'rustfs.bucket[{#BUCKET_NAME},age]'
-              delay: 5m
-              history: 2w
-              units: s
-              description: 'Age in seconds since last modification.'
-              tags:
-                - tag: component
-                  value: bucket
-            - uuid: 2b68b0d0000f4000800000000000000f
-              name: 'Bucket {#BUCKET_NAME}: bytes'
-              key: 'rustfs.bucket[{#BUCKET_NAME},bytes]'
-              delay: 5m
-              history: 2w
-              units: B
-              description: 'Total bytes stored in the bucket.'
-              tags:
-                - tag: component
-                  value: bucket
-            - uuid: 2b68b0d0000e4000800000000000000e
-              name: 'Bucket {#BUCKET_NAME}: objects'
-              key: 'rustfs.bucket[{#BUCKET_NAME},objects]'
-              delay: 5m
-              history: 2w
-              description: 'Number of objects in the bucket.'
-              tags:
-                - tag: component
-                  value: bucket
-              trigger_prototypes:
-                - uuid: 2b68b0d0001140008000000000000011
-                  expression: 'last(/LT RustFS/rustfs.bucket[{#BUCKET_NAME},objects])<{$RUSTFS.BUCKET.OBJECTS.MIN}'
-                  name: 'RustFS bucket {#BUCKET_NAME} is empty'
-                  priority: WARNING
-                  description: 'Bucket has fewer objects than the minimum expected (possible staleness).'
+  - uuid: 2b68b0d0000140008000000000000001
+    template: LT RustFS
+    name: LT RustFS
+    description: RustFS S3 object storage monitoring - LIDORIO TECH standard. Health
+      endpoints (no auth) + rc CLI for bucket metrics.
+    groups:
+    - name: Lidorio Tech
+    items:
+    - uuid: 2b68b0d0000c4000800000000000000c
+      name: RustFS data usage
+      key: rustfs.capacity[pct]
+      delay: 5m
+      history: 2w
+      value_type: FLOAT
+      units: '%'
+      description: Percentage of the data volume used.
       tags:
+      - tag: component
+        value: capacity
+      triggers:
+      - uuid: 2b68b0d0001540008000000000000015
+        expression: last(/LT RustFS/rustfs.capacity[pct])>{$RUSTFS.CAPACITY.HIGH}
+        name: RustFS data volume is critically full on {HOST.NAME}
+        priority: HIGH
+        tags:
         - tag: component
-          value: storage
-        - tag: service
-          value: rustfs
-        - tag: target
-          value: 'LT RustFS'
-      macros:
-        - macro: '{$RUSTFS.BUCKET.OBJECTS.MIN}'
-          value: '1'
-          description: 'Minimum objects expected in a bucket (staleness detection).'
-        - macro: '{$RUSTFS.CAPACITY.HIGH}'
-          value: '90'
-          description: 'High when data volume usage exceeds this %.'
-        - macro: '{$RUSTFS.CAPACITY.WARN}'
-          value: '80'
-          description: 'Warn when data volume usage exceeds this %.'
+          value: capacity
+      - uuid: 2b68b0d0001440008000000000000014
+        expression: last(/LT RustFS/rustfs.capacity[pct])>{$RUSTFS.CAPACITY.WARN}
+        name: RustFS data volume is filling up on {HOST.NAME}
+        priority: WARNING
+        tags:
+        - tag: component
+          value: capacity
+    - uuid: 2b68b0d0000b4000800000000000000b
+      name: RustFS data total
+      key: rustfs.capacity[total]
+      delay: 1h
+      history: 2w
+      units: B
+      description: Total bytes of the RustFS data volume.
+      tags:
+      - tag: component
+        value: capacity
+    - uuid: 2b68b0d0000a4000800000000000000a
+      name: RustFS data used
+      key: rustfs.capacity[used]
+      delay: 5m
+      history: 2w
+      units: B
+      description: Bytes used by RustFS data volume.
+      tags:
+      - tag: component
+        value: capacity
+    - uuid: 2b68b0d0000840008000000000000008
+      name: RustFS cluster iam
+      key: rustfs.cluster[iam]
+      history: 2w
+      description: 1 = iam connected, 0 = not connected.
+      tags:
+      - tag: component
+        value: cluster
+    - uuid: 2b68b0d0000940008000000000000009
+      name: RustFS cluster lock
+      key: rustfs.cluster[lock]
+      history: 2w
+      description: 1 = lock connected, 0 = not connected.
+      tags:
+      - tag: component
+        value: cluster
+    - uuid: 2b68b0d0000640008000000000000006
+      name: RustFS cluster status
+      key: rustfs.cluster[status]
+      history: 2w
+      description: 1 = cluster ok, 0 = degraded, -1 = unreachable.
+      tags:
+      - tag: component
+        value: cluster
+      triggers:
+      - uuid: 2b68b0d0001340008000000000000013
+        expression: last(/LT RustFS/rustfs.cluster[status])=0
+        name: RustFS cluster degraded on {HOST.NAME}
+        priority: HIGH
+        description: Cluster status is not ok (storage/iam/lock issue).
+        tags:
+        - tag: component
+          value: cluster
+    - uuid: 2b68b0d0000740008000000000000007
+      name: RustFS cluster storage
+      key: rustfs.cluster[storage]
+      history: 2w
+      description: 1 = storage connected, 0 = not connected.
+      tags:
+      - tag: component
+        value: cluster
+    - uuid: 2b68b0d0000440008000000000000004
+      name: RustFS health ready
+      key: rustfs.health[ready]
+      history: 2w
+      description: 1 = ready true, 0 = not ready, -1 = unreachable.
+      tags:
+      - tag: component
+        value: health
+    - uuid: 2b68b0d0000340008000000000000003
+      name: RustFS health status
+      key: rustfs.health[status]
+      history: 2w
+      description: 1 = status ok, 0 = not ok, -1 = unreachable.
+      tags:
+      - tag: component
+        value: health
+    - uuid: 2b68b0d0000540008000000000000005
+      name: RustFS version
+      key: rustfs.health[version]
+      delay: 1h
+      history: 2w
+      value_type: CHAR
+      trends: '0'
+      description: RustFS server version.
+      tags:
+      - tag: component
+        value: health
+    - uuid: 2b68b0d0000240008000000000000002
+      name: RustFS ping
+      key: rustfs.ping
+      history: 2w
+      description: 1 = RustFS /health endpoint responding with status ok.
+      tags:
+      - tag: component
+        value: health
+      triggers:
+      - uuid: 2b68b0d0001240008000000000000012
+        expression: last(/LT RustFS/rustfs.ping)=0
+        name: RustFS is unreachable on {HOST.NAME}
+        priority: HIGH
+        description: The /health endpoint is not responding with status ok.
+        tags:
+        - tag: component
+          value: health
+    discovery_rules:
+    - uuid: 2b68b0d0000d4000800000000000000d
+      name: RustFS buckets discovery
+      key: rustfs.discover.buckets
+      delay: 1h
+      description: Discovers S3 buckets via rc CLI.
+      item_prototypes:
+      - uuid: 2b68b0d0001040008000000000000010
+        name: 'Bucket {#BUCKET_NAME}: age'
+        key: rustfs.bucket[{#BUCKET_NAME},age]
+        delay: 5m
+        history: 2w
+        units: s
+        description: Age in seconds since last modification.
+        tags:
+        - tag: component
+          value: bucket
+        trigger_prototypes:
+        - uuid: 3b68b0d0001240008000000000000040
+          expression: last(/LT RustFS/rustfs.bucket[{#BUCKET_NAME},age])>{$RUSTFS.BUCKET.MAX_AGE}
+          name: 'Bucket {#BUCKET_NAME}: stale - no new objects for 7 days'
+          priority: WARNING
+          description: No new objects for more than {$RUSTFS.BUCKET.MAX_AGE}s. Check
+            the Bareos -> NAS -> Restic -> RustFS pipeline.
+      - uuid: 2b68b0d0000f4000800000000000000f
+        name: 'Bucket {#BUCKET_NAME}: bytes'
+        key: rustfs.bucket[{#BUCKET_NAME},bytes]
+        delay: 5m
+        history: 2w
+        units: B
+        description: Total bytes stored in the bucket.
+        tags:
+        - tag: component
+          value: bucket
+      - uuid: 2b68b0d0000e4000800000000000000e
+        name: 'Bucket {#BUCKET_NAME}: objects'
+        key: rustfs.bucket[{#BUCKET_NAME},objects]
+        delay: 5m
+        history: 2w
+        description: Number of objects in the bucket.
+        tags:
+        - tag: component
+          value: bucket
+        trigger_prototypes:
+        - uuid: 2b68b0d0001140008000000000000011
+          expression: last(/LT RustFS/rustfs.bucket[{#BUCKET_NAME},objects])<{$RUSTFS.BUCKET.OBJECTS.MIN}
+          name: RustFS bucket {#BUCKET_NAME} is empty
+          priority: WARNING
+          description: Bucket has fewer objects than the minimum expected (possible
+            staleness).
+    tags:
+    - tag: component
+      value: storage
+    - tag: service
+      value: rustfs
+    - tag: target
+      value: LT RustFS
+    macros:
+    - macro: '{$RUSTFS.BUCKET.OBJECTS.MIN}'
+      value: '1'
+      description: Minimum objects expected in a bucket (staleness detection).
+    - macro: '{$RUSTFS.CAPACITY.HIGH}'
+      value: '90'
+      description: High when data volume usage exceeds this %.
+    - macro: '{$RUSTFS.CAPACITY.WARN}'
+      value: '80'
+      description: Warn when data volume usage exceeds this %.
+    - macro: '{$RUSTFS.BUCKET.MAX_AGE}'
+      value: '604800'
+      description: Max seconds without new objects in a bucket (staleness/replication).

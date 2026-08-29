@@ -63,3 +63,10 @@ Testado em:
 - `truenas01` (192.168.2.217) — TrueNAS SCALE 25.10.6
 - Pool `tank` (MIRROR) com dataset `tank/backup`
 - Zabbix Server 7.0.30 LTS
+
+## Nota de validação (v0.6.0)
+- Scrub: TRUENAS-MIB 25.10 NÃO expõe OID de último scrub (verificado por
+  snmpwalk e pelo template oficial). Monitoramento de scrub entra na v0.6.1
+  via SNMP traps (.1.3.6.1.4.1.50536.2) com snmptrapd no zabbix1.
+- Temperatura de disco: em VMs sem sensor o hddTempTable retorna 0 C; as
+  triggers só disparam para temperatura ALTA (sem falso positivo).
