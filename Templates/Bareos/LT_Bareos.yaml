@@ -277,7 +277,7 @@ zabbix_export:
       - uuid: 1a68b0d0000e40008000000000000021
         name: 'Client {#CLIENT}: Last successful backup'
         key: bareos.client.last.successful.backup[{#CLIENT}]
-        delay: 1h
+        delay: 10m
         history: 2w
         units: unixtime
         description: Unix timestamp of the last successful backup job (status T, type
@@ -289,7 +289,7 @@ zabbix_export:
         name: 'Client {#CLIENT}: Days since last successful backup'
         type: CALCULATED
         key: bareos.client.backup.age[{#CLIENT}]
-        delay: 1h
+        delay: 10m
         history: 2w
         value_type: FLOAT
         units: '!days'
