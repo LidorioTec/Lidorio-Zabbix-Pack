@@ -70,3 +70,9 @@ Testado em:
   via SNMP traps (.1.3.6.1.4.1.50536.2) com snmptrapd no zabbix1.
 - Temperatura de disco: em VMs sem sensor o hddTempTable retorna 0 C; as
   triggers só disparam para temperatura ALTA (sem falso positivo).
+
+## Infra do pipeline de traps (v0.6.1)
+- firewalld: 162/udp precisa estar NA runtime (nao so permanent):
+  firewall-cmd --add-port=162/udp --permanent && firewall-cmd --reload
+- SELinux (Rocky/RHEL): snmpd_t escreve e zabbix_t le o SNMPTrapperFile;
+  em Enforcing criar modulo (audit2allow -M zbxtrap); lab: permissive OK.
