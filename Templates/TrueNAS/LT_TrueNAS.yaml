@@ -402,6 +402,34 @@ zabbix_export:
       tags:
       - tag: component
         value: zfs
+    - uuid: 2c68b0d0000240008000000000000060
+      name: 'TrueNAS: SNMP traps (alert/scrub events)'
+      type: SNMP_TRAP
+      key: snmptrap[.*50536\.2.*]
+      delay: '0'
+      history: 2w
+      value_type: LOG
+      description: Captura traps do TrueNAS (OID .1.3.6.1.4.1.50536.2).
+      tags:
+      - tag: component
+        value: zfs
+      - tag: event
+        value: trap
+      triggers:
+      - uuid: 2c68b0d0000340008000000000000060
+        expression: find(/LT TrueNAS/snmptrap[.*50536\.2.*],,"like","failed")=1
+        name: 'TrueNAS: Scrub failed (trap)'
+        priority: HIGH
+        manual_close: 'YES'
+        description: 'ZFS scrub reported failure via SNMP trap. Check zpool status
+          and run: zpool scrub <pool>'
+      - uuid: 2c68b0d0000340008000000000000061
+        expression: find(/LT TrueNAS/snmptrap[.*50536\.2.*],,"like","errors")=1
+        name: 'TrueNAS: Scrub found errors (trap)'
+        priority: AVERAGE
+        manual_close: 'YES'
+        description: ZFS scrub detected data corruption via SNMP trap. Run zpool status
+          -v.
     discovery_rules:
     - uuid: 2c68b0d0000d40008000000000000001
       name: ZFS pools discovery
