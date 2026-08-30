@@ -63,9 +63,3 @@ Tested on:
   SNMP traps (.1.3.6.1.4.1.50536.2) with snmptrapd on zabbix1.
 - Disk temperature: VMs without sensors report 0 C; triggers only fire on
   HIGH temperature (no false positives).
-
-## Trap pipeline infra (v0.6.1)
-- firewalld: 162/udp must be in the runtime config (not only permanent):
-  firewall-cmd --add-port=162/udp --permanent && firewall-cmd --reload
-- SELinux (Rocky/RHEL): snmpd_t writes and zabbix_t reads SNMPTrapperFile;
-  on Enforcing build a module (audit2allow -M zbxtrap); lab: permissive OK.
