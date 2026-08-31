@@ -63,3 +63,108 @@ Tested on:
   SNMP traps (.1.3.6.1.4.1.50536.2) with snmptrapd on zabbix1.
 - Disk temperature: VMs without sensors report 0 C; triggers only fire on
   HIGH temperature (no false positives).
+
+## Installation
+
+### Prerequisites
+
+- Zabbix Server 7.0 LTS
+- TrueNAS SCALE 25.10+
+- SNMP enabled on TrueNAS
+- `net-snmp-utils` and `net-snmp-perl` on Zabbix server
+
+### Procedure
+
+#### 1. Enable SNMP on TrueNAS (Web UI)
+
+1. Access TrueNAS web interface
+2. System → Services → SNMP → Enable
+3. Configure:
+   - SNMP v2c
+   - Community: `public` (or your preference)
+   - Log level: 3 (warnings)
+
+#### 2. Configure traps on Zabbix server
+
+~~~bash
+# Install dependencies
+sudo dnf install -y net-snmp-utils net-snmp-perl
+
+# Create scripts directory
+sudo mkdir -p /usr/lib/zabbix
+
+# Download official Zabbix receiver
+sudo wget -O /usr/lib/zabbix/zabbix_trap_receiver.pl \
+  https://raw.githubusercontent.com/zabbix/zabbix/master/misc/snmptrap/zabbix_trap_receiver.pl
+
+# Configure snmptrapd
+sudo tee /etc/snmp/snmptrapd.conf > /dev/null << 'EOCONF'
+authCommunity log,execute,net public
+perl do "/usr/lib/zabbix/zabbix_trap_receiver.pl";
+EOCONF
+
+# Create log directory
+sudo mkdir -p /var/log/snmptrap
+sudo touch /var/log/snmptrap/snmptrap.log
+sudo chown root:zabbix /var/log/snmptrap/snmptrap.log
+sudo chmod 644 /var/log/snmptrap/snmptrap.log
+
+# Enable and start snmptrapd
+sudo systemctl enable --now snmptrapd
+
+# Open port in firewalld
+sudo firewall-cmd --add-port=162/udp --permanent
+sudo firewall-cmd --reload
+~~~
+
+#### 3. Configure Zabbix Server to read traps
+
+Edit `/etc/zabbix/zabbix_server.conf`:
+
+~~~bash
+sudo tee -a /etc/zabbix/zabbix_server.conf > /dev/null << 'EOCONF'
+
+# SNMP Trapper
+StartSNMPTrapper=1
+SNMPTrapperFile=/var/log/snmptrap/snmptrap.log
+EOCONF
+
+sudo systemctl restart zabbix-server
+~~~
+
+#### 4. Import template and link host
+
+1. Data collection → Templates → Import → `Templates/TrueNAS/LT_TrueNAS.yaml`
+2. Data collection → Hosts → [TrueNAS host] → Link → `LT TrueNAS` → Update
+3. Configure SNMP on host:
+   - SNMP version: 2
+   - Community: `public`
+4. Monitoring → Latest data → filter `truenas`
+
+#### 5. Test traps
+
+On Zabbix server, send test trap:
+
+~~~bash
+snmptrap -v 2c -c public localhost "" 1.3.6.1.4.1.50536.2.1 \
+  1.3.6.1.4.1.50536.2.1.1 s "Test trap"
+~~~
+
+Check Monitoring → Problems: should show "TrueNAS: SNMP trap received"
+
+## Troubleshooting
+
+### Traps not reaching Zabbix
+Check firewalld: `sudo firewall-cmd --list-ports` (should include 162/udp)
+
+### SELinux blocking traps
+Check: `sudo getenforce`
+If `Enforcing`, create module:
+
+~~~bash
+sudo grep snmptrap /var/log/audit/audit.log | audit2allow -M snmptrap
+sudo semodule -i snmptrap.pp
+~~~
+
+### Perl script not writing to log
+Check: `sudo tail -f /var/log/snmptrap/snmptrap.log` while sending trap

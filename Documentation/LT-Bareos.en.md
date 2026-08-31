@@ -103,3 +103,85 @@ implementations), thanks to LLD.
 
 ## History
 - v0.2.0 (2026-08-24): first release validated on Zabbix 7.0 LTS.
+
+## Installation
+
+### Prerequisites
+
+- Zabbix Server 7.0 LTS
+- Bareos Director 23.x/24.x/25.x
+- PostgreSQL (Bareos catalog)
+- Python 3.8+ on the Director host
+
+### Procedure
+
+#### 1. Prepare the database (Director host)
+
+Debian/Ubuntu:
+
+~~~bash
+sudo apt update && sudo apt install -y postgresql-client
+sudo -u postgres psql bareos << 'EOSQL'
+CREATE USER zabbix_ro WITH PASSWORD 'YOUR_PASSWORD_HERE';
+GRANT CONNECT ON DATABASE bareos TO zabbix_ro;
+\c bareos
+GRANT USAGE ON SCHEMA public TO zabbix_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO zabbix_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO zabbix_ro;
+EOSQL
+~~~
+
+RHEL/Rocky/Alma: `sudo dnf install -y postgresql` + same SQL block.
+
+#### 2. Install the collector (Director host)
+
+~~~bash
+sudo mkdir -p /etc/zabbix/scripts
+sudo wget -O /etc/zabbix/scripts/lt_bareos_lastbackup.py \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/Bareos/lt_bareos_lastbackup.py
+sudo chmod 755 /etc/zabbix/scripts/lt_bareos_lastbackup.py
+
+sudo tee /etc/zabbix/scripts/lt_bareos.conf > /dev/null << 'EOCONF'
+db_host=127.0.0.1
+db_name=bareos
+db_user=zabbix_ro
+password=YOUR_PASSWORD_HERE
+EOCONF
+sudo chmod 640 /etc/zabbix/scripts/lt_bareos.conf
+sudo chown root:zabbix /etc/zabbix/scripts/lt_bareos.conf
+
+sudo wget -O /etc/zabbix/zabbix_agent2.d/lt_bareos_lastbackup.conf \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/Bareos/userparameter_lt_bareos_lastbackup.conf
+sudo systemctl restart zabbix-agent2
+~~~
+
+RHEL/Rocky/Alma: same commands; restart with
+`sudo systemctl restart zabbix-agent2 || sudo systemctl restart zabbix-agent`
+
+#### 3. Test
+
+~~~bash
+sudo -u zabbix /etc/zabbix/scripts/lt_bareos_lastbackup.py "notebook-01-fd"
+# expected: Unix timestamp
+
+# from the Zabbix server:
+zabbix_get -s BAREOS_IP -k "bareos.client.last.successful.backup[notebook-01-fd]"
+~~~
+
+#### 4. Import template and link host
+
+1. Data collection → Templates → Import → `Templates/Bareos/LT_Bareos.yaml`
+2. Data collection → Hosts → [Director host] → Link → `LT Bareos` → Update
+3. Monitoring → Latest data → filter `last successful backup`
+
+## Troubleshooting
+
+### "Permission denied" on script
+Fix conf perms: `chown root:zabbix` + `chmod 640`.
+
+### "Connection refused" on PostgreSQL
+Ensure `listen_addresses = 'localhost'` and
+`host bareos zabbix_ro 127.0.0.1/32 md5` in pg_hba.conf; restart postgresql.
+
+### Item "Not supported"
+Check UserParameter: `zabbix_agent2 -T | grep bareos`; restart agent.

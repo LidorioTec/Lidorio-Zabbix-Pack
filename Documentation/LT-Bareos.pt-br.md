@@ -107,3 +107,92 @@ contrario de algumas implementacoes legadas), gracas ao LLD.
 
 ## Historico
 - v0.2.0 (24/08/2026): primeira versao validada no Zabbix 7.0 LTS.
+
+## Instalação
+
+### Pré-requisitos
+
+- Zabbix Server 7.0 LTS
+- Bareos Director 23.x/24.x/25.x
+- PostgreSQL (catálogo do Bareos)
+- Python 3.8+ no host do Director
+
+### Procedimento
+
+#### 1. Preparar o banco (host do Director)
+
+Debian/Ubuntu:
+
+~~~bash
+sudo apt update && sudo apt install -y postgresql-client
+sudo -u postgres psql bareos << 'EOSQL'
+CREATE USER zabbix_ro WITH PASSWORD 'SUA_SENHA_AQUI';
+GRANT CONNECT ON DATABASE bareos TO zabbix_ro;
+\c bareos
+GRANT USAGE ON SCHEMA public TO zabbix_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO zabbix_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO zabbix_ro;
+EOSQL
+~~~
+
+RHEL/Rocky/Alma:
+
+~~~bash
+sudo dnf install -y postgresql
+# (mesmo bloco SQL do Debian acima)
+~~~
+
+#### 2. Instalar o coletor (host do Director)
+
+Debian/Ubuntu:
+
+~~~bash
+sudo mkdir -p /etc/zabbix/scripts
+sudo wget -O /etc/zabbix/scripts/lt_bareos_lastbackup.py \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/Bareos/lt_bareos_lastbackup.py
+sudo chmod 755 /etc/zabbix/scripts/lt_bareos_lastbackup.py
+
+sudo tee /etc/zabbix/scripts/lt_bareos.conf > /dev/null << 'EOCONF'
+db_host=127.0.0.1
+db_name=bareos
+db_user=zabbix_ro
+password=SUA_SENHA_AQUI
+EOCONF
+sudo chmod 640 /etc/zabbix/scripts/lt_bareos.conf
+sudo chown root:zabbix /etc/zabbix/scripts/lt_bareos.conf
+
+sudo wget -O /etc/zabbix/zabbix_agent2.d/lt_bareos_lastbackup.conf \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/Bareos/userparameter_lt_bareos_lastbackup.conf
+sudo systemctl restart zabbix-agent2
+~~~
+
+RHEL/Rocky/Alma: mesmos comandos; reinicie com
+`sudo systemctl restart zabbix-agent2 || sudo systemctl restart zabbix-agent`
+
+#### 3. Testar
+
+~~~bash
+sudo -u zabbix /etc/zabbix/scripts/lt_bareos_lastbackup.py "notebook-01-fd"
+# esperado: timestamp Unix
+
+# do servidor Zabbix:
+zabbix_get -s IP_DO_BAREOS -k "bareos.client.last.successful.backup[notebook-01-fd]"
+~~~
+
+#### 4. Importar template e vincular ao host
+
+1. Data collection → Templates → Import → `Templates/Bareos/LT_Bareos.yaml`
+2. Data collection → Hosts → [host do Director] → Link → `LT Bareos` → Update
+3. Monitoring → Latest data → filtro `last successful backup`
+
+## Troubleshooting
+
+### "Permission denied" no script
+Permissões do conf: `chown root:zabbix` + `chmod 640`.
+
+### "Connection refused" no PostgreSQL
+Garantir `listen_addresses = 'localhost'` e linha
+`host bareos zabbix_ro 127.0.0.1/32 md5` no pg_hba.conf; restart postgresql.
+
+### Item "Not supported"
+Conferir UserParameter: `zabbix_agent2 -T | grep bareos`; restart do agent.

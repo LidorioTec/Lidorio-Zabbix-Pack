@@ -113,3 +113,16 @@ This project is licensed under the MIT License - see the
 
 Lidorio-Zabbix-Pack is the public layer of the LIDORIO TECH monitoring
 ecosystem. Commercial and private solutions remain separate.
+
+## Convenção de documentação (Documentation Convention)
+
+Todos os arquivos de documentação seguem o padrão bilíngue:
+
+All documentation files follow the bilingual standard:
+
+| Tipo / Type | Convenção / Convention |
+|-------------|------------------------|
+| Docs por template | `LT-X.pt-br.md` + `LT-X.en.md` |
+| Release Notes | `RELEASE_NOTES_vX.Y.Z.pt-br.md` + `RELEASE_NOTES_vX.Y.Z.en.md` |
+| Procedimentos | seções PT-BR e EN dentro de cada doc |
+| Cercas de código | usar `~~~` em vez de ``` para não quebrar heredocs |
