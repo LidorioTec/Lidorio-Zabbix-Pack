@@ -1,7 +1,21 @@
 #!/usr/bin/env python3
-# LT Bareos - LIDORIO TECH
-# Read-only collector for the Bareos catalog (PostgreSQL).
+# -*- coding: utf-8 -*-
+"""
+LT Bareos - LIDORIO TECH
+Read-only collector for the Bareos catalog (PostgreSQL).
+v0.7.0 (lib_lt refactor)
+"""
 import json, os, subprocess, sys, time
+
+# Import lib_lt
+sys.path.insert(0, "/etc/zabbix/lib")
+try:
+    import lib_lt
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
+    import lib_lt
+
+LOG = lib_lt.get_logger("bareos")
 
 CONF_FILE = "/etc/zabbix/scripts/lt_bareos.conf"
 CACHE_FILE = "/var/lib/zabbix/lt_bareos.cache.json"
@@ -10,23 +24,11 @@ CACHE_TTL = 120
 STATUS_MAP = {"T": 0, "W": 1, "E": 2, "f": 2}
 NO_DATA = 99999
 
-def log(msg):
-    sys.stderr.write("lt_bareos: %s\n" % msg)
-
 def load_conf():
-    conf = {"host": "127.0.0.1", "port": "5432", "db": "bareos",
-            "user": "zabbix_ro", "password": ""}
-    try:
-        with open(CONF_FILE) as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                conf[k.strip()] = v.strip()
-    except OSError as e:
-        log("conf error: %s" % e)
-    return conf
+    """Load config using lib_lt, with Bareos-specific defaults."""
+    defaults = {"host": "127.0.0.1", "port": "5432", "db": "bareos",
+                "user": "zabbix_ro", "password": ""}
+    return lib_lt.load_config(CONF_FILE, defaults)
 
 def sql(conf, query):
     env = dict(os.environ)
@@ -38,10 +40,12 @@ def sql(conf, query):
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         universal_newlines=True, env=env, timeout=30)
     if res.returncode != 0:
+        LOG.error(f"SQL error: {res.stderr.strip()}")
         raise RuntimeError(res.stderr.strip())
     return [l.split("|") for l in res.stdout.splitlines() if l.strip()]
 
 def build_data(conf):
+    LOG.info("starting full catalog collection")
     now = int(time.time())
     data = {"ts": now, "clients": {}, "pools": {}}
     for r in sql(conf, "SELECT Name FROM Client ORDER BY Name"):
@@ -80,6 +84,7 @@ def build_data(conf):
         GROUP BY p.Name ORDER BY p.Name""")
     for r in rows:
         data["pools"][r[0]] = {"volumes": int(r[1]), "bytes": int(r[2])}
+    LOG.info(f"collected {len(data['clients'])} clients, {len(data['pools'])} pools")
     return data
 
 def get_data(conf):
@@ -87,6 +92,7 @@ def get_data(conf):
         with open(CACHE_FILE) as fh:
             cache = json.load(fh)
         if now_ts() - int(cache.get("ts", 0)) < CACHE_TTL:
+            LOG.info("cache hit")
             return cache
     except (OSError, ValueError):
         pass
@@ -96,8 +102,9 @@ def get_data(conf):
         with open(tmp, "w") as fh:
             json.dump(data, fh)
         os.replace(tmp, CACHE_FILE)
+        LOG.info("cache saved (atomic)")
     except OSError as e:
-        log("cache write error: %s" % e)
+        LOG.warning(f"cache write error: {e}")
     return data
 
 def now_ts():
@@ -107,33 +114,35 @@ def main():
     conf = load_conf()
     args = sys.argv[1:]
     if not args:
-        print(0)
+        lib_lt.emit(0)
         return
     cmd = args[0]
     if cmd == "ping":
         try:
             sql(conf, "SELECT 1")
-            print(1)
+            LOG.info("ping: 1")
+            lib_lt.emit(1)
         except Exception as e:
-            log(str(e))
-            print(0)
+            LOG.error(f"ping failed: {e}")
+            lib_lt.emit(0)
         return
     data = get_data(conf)
     if cmd == "clients":
-        print(json.dumps({"data": [{"{#CLIENT}": c}
+        lib_lt.emit(json.dumps({"data": [{"{#CLIENT}": c}
               for c in sorted(data["clients"])]}))
     elif cmd == "pools":
-        print(json.dumps({"data": [{"{#POOL}": p}
+        lib_lt.emit(json.dumps({"data": [{"{#POOL}": p}
               for p in sorted(data["pools"])]}))
     elif cmd == "job" and len(args) == 4:
-        print(data["clients"].get(args[1], {}).get(args[2], {})
+        lib_lt.emit(data["clients"].get(args[1], {}).get(args[2], {})
               .get(args[3], -1))
     elif cmd == "client" and len(args) == 3:
-        print(data["clients"].get(args[1], {}).get(args[2], -1))
+        lib_lt.emit(data["clients"].get(args[1], {}).get(args[2], -1))
     elif cmd == "pool" and len(args) == 3:
-        print(data["pools"].get(args[1], {}).get(args[2], -1))
+        lib_lt.emit(data["pools"].get(args[1], {}).get(args[2], -1))
     else:
-        print(0)
+        LOG.error(f"unknown command: {cmd}")
+        lib_lt.emit(0)
 
 if __name__ == "__main__":
     main()
