@@ -59,3 +59,77 @@ Filesystem usage thresholds (WARN/HIGH) and disk temperature thresholds
 
 ## History
 - v0.3.0 (2026-08-24): first adapter (OpenMediaVault) validated.
+
+## Installation
+
+### Prerequisites
+
+- Zabbix Server 7.0 LTS
+- OpenMediaVault 7.x (Debian-based)
+- Zabbix Agent 2 on OMV host
+- Python 3.8+ on OMV
+
+### Procedure
+
+#### 1. Install Zabbix Agent 2 on OMV
+
+OMV is Debian-based, so use apt:
+
+~~~bash
+# Add official Zabbix repository
+wget https://repo.zabbix.com/zabbix-release/7.0/zabbix-release_latest+debian12_all.deb
+sudo dpkg -i zabbix-release_latest+debian12_all.deb
+sudo apt update
+sudo apt install -y zabbix-agent2
+
+# Enable and start
+sudo systemctl enable --now zabbix-agent2
+~~~
+
+#### 2. Install OMV collector
+
+~~~bash
+sudo mkdir -p /etc/zabbix/scripts
+
+sudo wget -O /etc/zabbix/scripts/lt_omv.py \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/NAS/lt_omv.py
+sudo chmod 755 /etc/zabbix/scripts/lt_omv.py
+
+# Configuration (if OMV uses omv-confdbadm or local API)
+sudo tee /etc/zabbix/scripts/lt_omv.conf > /dev/null << 'EOCONF'
+omv_cli=/usr/sbin/omv-confdbadm
+EOCONF
+sudo chmod 640 /etc/zabbix/scripts/lt_omv.conf
+sudo chown root:zabbix /etc/zabbix/scripts/lt_omv.conf
+
+# UserParameter
+sudo wget -O /etc/zabbix/zabbix_agent2.d/lt_omv.conf \
+  https://raw.githubusercontent.com/LidorioTec/Lidorio-Zabbix-Pack/main/Scripts/NAS/userparameter_lt_omv.conf
+
+sudo systemctl restart zabbix-agent2
+~~~
+
+#### 3. Test
+
+~~~bash
+sudo -u zabbix /etc/zabbix/scripts/lt_omv.py shares
+# expected: list of shares
+
+# from Zabbix server:
+zabbix_get -s OMV_IP -k "omv.discover.shares"
+~~~
+
+#### 4. Import template and link
+
+1. Data collection → Templates → Import → `Templates/NAS/LT_NAS_Storage.yaml`
+2. Data collection → Hosts → [OMV host] → Link → `LT NAS Storage` → Update
+3. Monitoring → Latest data → filter `omv`
+
+## Troubleshooting
+
+### "Permission denied" on omv-confdbadm
+The collector needs root or sudo. Adjust the UserParameter to use
+`sudo` (configure passwordless sudoers for the command).
+
+### Item "Not supported"
+Check UserParameter: `zabbix_agent2 -T | grep omv`; restart agent.

@@ -88,3 +88,55 @@ v0.1.0 - validated on 2026-08-16 on Zabbix 7.0.29 LTS.
 ## Version history
 
 - v0.1.0 (2026-08-16): first release, validated on Zabbix 7.0 LTS.
+
+## Installation
+
+### Prerequisites
+
+- Zabbix Server 7.0 LTS
+- Linux host (Debian/Ubuntu or RHEL/Rocky/Alma)
+
+### Procedure
+
+#### 1. Install Zabbix Agent 2
+
+Debian/Ubuntu:
+
+~~~bash
+wget https://repo.zabbix.com/zabbix-release/7.0/zabbix-release_latest+debian12_all.deb
+sudo dpkg -i zabbix-release_latest+debian12_all.deb
+sudo apt update
+sudo apt install -y zabbix-agent2
+sudo systemctl enable --now zabbix-agent2
+~~~
+
+RHEL/Rocky/Alma:
+
+~~~bash
+sudo dnf install -y https://repo.zabbix.com/zabbix-release/7.0/zabbix-release-latest-7.0.el9.noarch.rpm
+sudo dnf install -y zabbix-agent2
+sudo systemctl enable --now zabbix-agent2
+~~~
+
+#### 2. Configure the agent
+
+Edit `/etc/zabbix/zabbix_agent2.conf`:
+
+~~~bash
+Server=ZABBIX_SERVER_IP
+ServerActive=ZABBIX_SERVER_IP
+Hostname=HOST_NAME
+~~~
+
+Restart: `sudo systemctl restart zabbix-agent2`
+
+#### 3. Import template and link
+
+1. Data collection → Templates → Import → `Templates/Linux/LT_Linux_Base.yaml`
+2. Data collection → Hosts → [host] → Link → `LT Linux Base` → Update
+3. Monitoring → Latest data → filter `system`
+
+## Troubleshooting
+
+### Agent not connecting to server
+Check `Server=` in agent config and firewall (port 10050/tcp).
