@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 OpenMediaVault Zabbix Collector (lt_omv.py)
-LIDORIO TECH - Lidorio-Zabbix-Pack v0.3.0
+LIDORIO TECH - Lidorio-Zabbix-Pack v0.7.0 (lib_lt refactor)
 """
 
 import json
@@ -10,6 +10,16 @@ import sys
 import requests
 import time
 import os
+
+# Import lib_lt
+sys.path.insert(0, "/etc/zabbix/lib")
+try:
+    import lib_lt
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
+    import lib_lt
+
+LOG = lib_lt.get_logger("omv")
 
 CONFIG_FILE = "/etc/zabbix/scripts/lt_omv.conf"
 CACHE_FILE = "/tmp/lt_omv_cache.json"
@@ -23,22 +33,17 @@ class OMVCollector:
         self._authenticate()
     
     def _load_config(self, config_file):
-        config = {
+        """Load config using lib_lt, with OMV-specific defaults."""
+        defaults = {
             'omv_url': 'http://localhost',
             'username': 'admin',
             'password': '',
-            'verify_ssl': False
+            'verify_ssl': 'False'
         }
-        
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
-                        config[key.strip()] = value.strip()
-        
-        return config
+        cfg = lib_lt.load_config(config_file, defaults)
+        # Convert verify_ssl string to boolean
+        cfg['verify_ssl'] = cfg.get('verify_ssl', 'False').lower() == 'true'
+        return cfg
     
     def _authenticate(self):
         try:
@@ -56,17 +61,19 @@ class OMVCollector:
             data = response.json()
             
             if data.get('error'):
-                print(f"Erro de autenticação: {data['error']}", file=sys.stderr)
+                LOG.error(f"authentication failed: {data['error']}")
                 return False
             
             self.authenticated = True
+            LOG.info("authentication successful")
             return True
         except Exception as e:
-            print(f"Erro ao autenticar: {e}", file=sys.stderr)
+            LOG.error(f"authentication error: {e}")
             return False
     
     def _rpc_call(self, service, method, params=None):
         if not self.authenticated:
+            LOG.error(f"RPC call {service}.{method} skipped: not authenticated")
             return None
         
         if params is None:
@@ -84,12 +91,12 @@ class OMVCollector:
             data = response.json()
             
             if data.get('error'):
-                print(f"Erro RPC {service}.{method}: {data['error']}", file=sys.stderr)
+                LOG.error(f"RPC {service}.{method} failed: {data['error']}")
                 return None
             
             return data.get('response')
         except Exception as e:
-            print(f"Erro na chamada RPC: {e}", file=sys.stderr)
+            LOG.error(f"RPC call error: {e}")
             return None
     
     def _load_cache(self):
@@ -101,9 +108,10 @@ class OMVCollector:
                 cache = json.load(f)
             
             if time.time() - cache.get('timestamp', 0) < CACHE_TTL:
+                LOG.info("cache hit")
                 return cache['data']
-        except:
-            pass
+        except Exception as e:
+            LOG.warning(f"cache read error: {e}")
         
         return None
     
@@ -115,10 +123,12 @@ class OMVCollector:
             }
             with open(CACHE_FILE, 'w') as f:
                 json.dump(cache, f)
-        except:
-            pass
+            LOG.info("cache saved")
+        except Exception as e:
+            LOG.warning(f"cache write error: {e}")
     
     def _collect_all_data(self):
+        LOG.info("starting full data collection")
         data = {
             'filesystems': [],
             'disks': []
@@ -126,7 +136,7 @@ class OMVCollector:
         
         fs_data = self._rpc_call('FileSystemMgmt', 'enumerateFilesystems')
         if fs_data:
-                data['filesystems'] = [
+            data['filesystems'] = [
                 fs for fs in fs_data
                 if fs.get('mounted', False)
                 and fs.get('type') != 'swap'
@@ -137,10 +147,13 @@ class OMVCollector:
         if disk_data:
             data['disks'] = disk_data
         
+        LOG.info(f"collected {len(data['filesystems'])} filesystems, {len(data['disks'])} disks")
         return data
     
     def ping(self):
-        return 1 if self.authenticated else 0
+        result = 1 if self.authenticated else 0
+        LOG.info(f"ping: {result}")
+        return result
     
     def discover_filesystems(self):
         cache = self._load_cache()
@@ -157,6 +170,7 @@ class OMVCollector:
                 '{#FSUUID}': fs.get('uuid')
             })
         
+        LOG.info(f"discover filesystems: {len(discovery)}")
         return json.dumps({'data': discovery})
     
     def discover_disks(self):
@@ -174,6 +188,7 @@ class OMVCollector:
                 '{#DISKSIZE}': disk.get('size', '0')
             })
         
+        LOG.info(f"discover disks: {len(discovery)}")
         return json.dumps({'data': discovery})
     
     def get_fs_metric(self, fsname, metric):
@@ -194,6 +209,7 @@ class OMVCollector:
                 elif metric == 'percentage':
                     return fs.get('percentage', 0)
         
+        LOG.warning(f"filesystem not found: {fsname}")
         return 0
     
     def get_disk_metric(self, diskname, metric):
@@ -211,12 +227,14 @@ class OMVCollector:
                     if temp:
                         try:
                             return int(''.join(filter(str.isdigit, temp.split()[0] if temp else '0')))
-                        except:
+                        except Exception as e:
+                            LOG.error(f"temperature parse error for {diskname}: {e}")
                             return 0
                     return 0
                 elif metric == 'powermode':
                     return 1 if disk.get('powermode') == 'ACTIVE or IDLE' else 0
         
+        LOG.warning(f"disk not found: {diskname}")
         return 0
     
     def _parse_size(self, size_str):
@@ -225,6 +243,7 @@ class OMVCollector:
         
         parts = size_str.split()
         if len(parts) != 2:
+            LOG.warning(f"invalid size format: {size_str}")
             return 0
         
         value = float(parts[0])
@@ -242,36 +261,38 @@ class OMVCollector:
 
 def main():
     if len(sys.argv) < 2:
-        print("Uso: lt_omv.py <comando> [args]", file=sys.stderr)
-        sys.exit(1)
+        LOG.error("no command provided")
+        lib_lt.emit("Uso: lt_omv.py <comando> [args]", exit_code=1)
     
     collector = OMVCollector()
     command = sys.argv[1]
     
-    if command == 'ping':
-        print(collector.ping())
-    
-    elif command == 'discover_filesystems':
-        print(collector.discover_filesystems())
-    
-    elif command == 'discover_disks':
-        print(collector.discover_disks())
-    
-    elif command == 'fs':
-        if len(sys.argv) != 4:
-            print("Uso: lt_omv.py fs <fsname> <metric>", file=sys.stderr)
-            sys.exit(1)
-        print(collector.get_fs_metric(sys.argv[2], sys.argv[3]))
-    
-    elif command == 'disk':
-        if len(sys.argv) != 4:
-            print("Uso: lt_omv.py disk <diskname> <metric>", file=sys.stderr)
-            sys.exit(1)
-        print(collector.get_disk_metric(sys.argv[2], sys.argv[3]))
-    
-    else:
-        print(f"Comando desconhecido: {command}", file=sys.stderr)
-        sys.exit(1)
+    try:
+        if command == 'ping':
+            lib_lt.emit(collector.ping())
+        
+        elif command == 'discover_filesystems':
+            lib_lt.emit(collector.discover_filesystems())
+        
+        elif command == 'discover_disks':
+            lib_lt.emit(collector.discover_disks())
+        
+        elif command == 'fs':
+            if len(sys.argv) != 4:
+                lib_lt.emit("Uso: lt_omv.py fs <fsname> <metric>", exit_code=1)
+            lib_lt.emit(collector.get_fs_metric(sys.argv[2], sys.argv[3]))
+        
+        elif command == 'disk':
+            if len(sys.argv) != 4:
+                lib_lt.emit("Uso: lt_omv.py disk <diskname> <metric>", exit_code=1)
+            lib_lt.emit(collector.get_disk_metric(sys.argv[2], sys.argv[3]))
+        
+        else:
+            LOG.error(f"unknown command: {command}")
+            lib_lt.emit(f"Comando desconhecido: {command}", exit_code=1)
+    except Exception as e:
+        LOG.error(f"unhandled exception: {e}", exc_info=True)
+        lib_lt.emit(-1, exit_code=1)
 
 if __name__ == '__main__':
     main()

@@ -1,43 +1,47 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""LT Bareos - Last successful backup per client (v0.6.0)"""
+"""LT Bareos - Last successful backup per client (v0.7.0, lib_lt refactor)"""
 import os, subprocess, sys
 
-CONF = "/etc/zabbix/scripts/lt_bareos.conf"
+sys.path.insert(0, "/etc/zabbix/lib")
+try:
+    import lib_lt
+except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
+    import lib_lt
 
-def load_conf():
-    c = {"db_host": "127.0.0.1", "db_name": "bareos",
-         "db_user": "zabbix_ro", "password": ""}
-    try:
-        with open(CONF) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    c[k.strip()] = v.strip()
-    except Exception:
-        pass
-    return c
+LOG = lib_lt.get_logger("bareos")
+CONF_PATH = "/etc/zabbix/scripts/lt_bareos.conf"
+DEFAULTS = {"db_host": "127.0.0.1", "db_name": "bareos",
+            "db_user": "zabbix_ro", "password": ""}
 
 def main():
     if len(sys.argv) < 2:
-        print(0); return
+        lib_lt.emit(0)
     client = sys.argv[1]
-    c = load_conf()
+
+    cfg = lib_lt.load_config(CONF_PATH, DEFAULTS)
     sql = ("SELECT COALESCE(EXTRACT(EPOCH FROM max(endtime)),0) "
            "FROM job j JOIN client cl ON j.clientid=cl.clientid "
            "WHERE cl.name='" + client.replace("'", "''") + "' "
            "AND j.jobstatus='T' AND j.type='B'")
+
     env = os.environ.copy()
-    env["PGPASSWORD"] = c["password"]
+    env["PGPASSWORD"] = cfg["password"]
     try:
-        r = subprocess.run(["psql", "-h", c["db_host"], "-U", c["db_user"],
-                            "-d", c["db_name"], "-t", "-A", "-c", sql],
+        r = subprocess.run(["psql", "-h", cfg["db_host"], "-U", cfg["db_user"],
+                            "-d", cfg["db_name"], "-t", "-A", "-c", sql],
                            capture_output=True, text=True, env=env, timeout=10)
         out = r.stdout.strip()
-        print(int(float(out)) if out else 0)
-    except Exception:
-        print(0)
+        result = int(float(out)) if out else 0
+        LOG.info(f"client={client} last_success_epoch={result}")
+        lib_lt.emit(result)
+    except subprocess.TimeoutExpired:
+        LOG.error(f"client={client} psql timeout")
+        lib_lt.emit(0)
+    except Exception as e:
+        LOG.error(f"client={client} error={e}")
+        lib_lt.emit(0)
 
 if __name__ == "__main__":
     main()
