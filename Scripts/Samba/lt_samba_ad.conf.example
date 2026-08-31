@@ -1,0 +1,8 @@
+# LT Samba AD - LIDORIO TECH
+# Conta read-only (sem privilegios administrativos)
+domain=lab.lidorio.tech
+bind_dn=zabbix_ro@lab.lidorio.tech
+bind_password=CHANGE_ME
+# Opcional: fixar URI (vazio = auto-discover via DNS SRV)
+ldap_uri=
+cache_ttl=120
