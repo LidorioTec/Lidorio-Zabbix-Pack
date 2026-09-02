@@ -17,7 +17,6 @@ Dependencias: pip3 install ldap3 dnspython
 import json
 import os
 import re
-import ssl
 import sys
 import time
 
@@ -100,38 +99,18 @@ def discover_dcs_dns(domain):
         return []
 
 def ldap_connect(cfg, uri=None):
-    """Conexao LDAP com bind read-only. Tenta LDAPS primeiro (strongerAuthRequired)."""
-    import ldap3
-    explicit = uri or cfg.get("ldap_uri")
-    verify = str(cfg.get("verify_tls", "false")).lower() == "true"
-    tls_cfg = ldap3.Tls(validate=ssl.CERT_REQUIRED if verify else ssl.CERT_NONE)
-
-    candidates = []
-    if explicit:
-        candidates.append(explicit)
-    else:
-        # Prioridade: LDAPS local > LDAPS por dominio > LDAP por dominio
-        candidates += [
-            "ldaps://127.0.0.1:636",
-            f"ldaps://{cfg['domain']}:636",
-            f"ldap://{cfg['domain']}:389",
-        ]
-
-    for target in candidates:
-        try:
-            use_tls = target.startswith("ldaps://")
-            server = ldap3.Server(target, connect_timeout=5,
-                                  use_ssl=use_tls, tls=tls_cfg,
-                                  get_info=ldap3.NONE)
-            conn = ldap3.Connection(server, user=cfg["bind_dn"],
-                                    password=cfg["bind_password"],
-                                    auto_bind=True, receive_timeout=10)
-            LOG.info(f"LDAP bind OK via {target}")
-            return conn
-        except Exception as e:
-            LOG.warning(f"LDAP bind failed ({target}): {e}")
-    LOG.error("LDAP bind failed on all candidates")
-    return None
+    """Conexao LDAP com bind read-only. Retorna Connection ou None."""
+    try:
+        import ldap3
+        target = uri or cfg.get("ldap_uri") or f"ldap://{cfg['domain']}"
+        server = ldap3.Server(target, connect_timeout=5, get_info=ldap3.NONE)
+        conn = ldap3.Connection(server, user=cfg["bind_dn"],
+                                password=cfg["bind_password"],
+                                auto_bind=True, receive_timeout=10)
+        return conn
+    except Exception as e:
+        LOG.error(f"LDAP bind failed ({uri or 'default'}): {e}")
+        return None
 
 def domain_root(domain):
     return ",".join(f"DC={p}" for p in domain.split("."))
