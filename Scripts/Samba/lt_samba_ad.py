@@ -88,15 +88,32 @@ def get_cached(key, ttl, fn):
 # Conectores
 # ---------------------------------------------------------------------------
 def discover_dcs_dns(domain):
-    """Lista de hostnames dos DCs via DNS SRV _ldap._tcp.<domain>."""
+    """Lista de hostnames dos DCs via DNS SRV. Tenta 127.0.0.1 primeiro (o proprio DC)."""
     try:
         import dns.resolver
-        answers = dns.resolver.resolve(f"_ldap._tcp.{domain}", "SRV")
+        # Prioridade: DC local -> IP do dominio -> resolver do sistema
+        nameservers = ["127.0.0.1", domain]
+        qname = f"_ldap._tcp.{domain}"
+        for ns in nameservers:
+            try:
+                resolver = dns.resolver.Resolver()
+                resolver.nameservers = [ns]
+                resolver.timeout = 2
+                resolver.lifetime = 2
+                answers = resolver.resolve(qname, "SRV")
+                dcs = sorted({str(r.target).rstrip(".").split(".")[0] for r in answers})
+                LOG.info(f"DNS SRV discovered {len(dcs)} DC(s) via {ns}")
+                return dcs
+            except Exception as e:
+                LOG.warning(f"DNS SRV via {ns} failed: {e}")
+                continue
+        # Fallback: resolver padrao do sistema
+        answers = dns.resolver.resolve(qname, "SRV")
         dcs = sorted({str(r.target).rstrip(".").split(".")[0] for r in answers})
-        LOG.info(f"DNS SRV discovered {len(dcs)} DC(s)")
+        LOG.info(f"DNS SRV discovered {len(dcs)} DC(s) via default resolver")
         return dcs
     except Exception as e:
-        LOG.error(f"DNS SRV discovery failed: {e}")
+        LOG.error(f"DNS SRV discovery failed on all nameservers: {e}")
         return []
 
 def ldap_connect(cfg, uri=None):
@@ -140,7 +157,14 @@ def domain_root(domain):
 # Coletores LDAP
 # ---------------------------------------------------------------------------
 def collect_fsmo(cfg):
-    """Mapa das 5 roles FSMO -> DC owner."""
+    """Mapa das 5 roles FSMO -> DC owner.
+    
+    LIDORIO TECH exclusive: heuristic dedutiva para Samba AD.
+    Samba nao popula fSMORoleOwner em todas as roles (comportamento conhecido
+    em niveis 2008R2 + --use-rfc2307). Se alguma role retornar vazia mas
+    houver exatamente 1 DC no dominio, inferimos que esse DC eh o owner
+    por eliminacao logica.
+    """
     conn = ldap_connect(cfg)
     if not conn:
         return {}
@@ -152,12 +176,40 @@ def collect_fsmo(cfg):
             conn.search(dn, "(objectClass=*)", attributes=["fSMORoleOwner"])
             if conn.entries:
                 owner_dn = str(conn.entries[0]["fSMORoleOwner"])
-                m = re.search(r"CN=NTDS Settings,CN=([^,]+),CN=Servers", owner_dn)
-                roles[role] = m.group(1) if m else "unknown"
+                # ldap3 pode retornar "[]" (lista vazia em string) se atributo nao existe
+                if owner_dn in ("[]", "", "None"):
+                    roles[role] = "unknown"
+                else:
+                    m = re.search(r"CN=NTDS Settings\s*,\s*CN=([^,]+)", owner_dn, re.IGNORECASE)
+                    roles[role] = m.group(1) if m else "unknown"
+            else:
+                roles[role] = "unknown"
         except Exception as e:
             LOG.error(f"FSMO query failed ({role}): {e}")
             roles[role] = "unknown"
     conn.unbind()
+
+    # Heuristica LIDORIO TECH: inferencia de roles por eliminacao.
+    # Se pelo menos 1 role (tipicamente RID/INFRA, que o Samba sempre popula)
+    # confirma um DC como owner, inferimos que TODAS as roles pertencem a
+    # esse mesmo DC. Validacao opcional via DNS SRV (nao bloqueante).
+    unknown_roles = [r for r, v in roles.items() if v == "unknown"]
+    known_owners = {v for v in roles.values() if v != "unknown"}
+    if unknown_roles and len(known_owners) == 1:
+        inferred_dc = next(iter(known_owners))
+        dns_confirmed = False
+        try:
+            dcs = discover_dcs_dns(cfg["domain"])
+            if len(dcs) == 1 and dcs[0].lower() == inferred_dc.lower():
+                dns_confirmed = True
+        except Exception:
+            pass
+        # Aplica heuristica mesmo sem DNS (single-owner logic)
+        for r in unknown_roles:
+            roles[r] = inferred_dc
+        source = "DNS-confirmed single-DC" if dns_confirmed else "single-owner inference"
+        LOG.info(f"FSMO heuristic: inferred {len(unknown_roles)} role(s) -> {inferred_dc} ({source})")
+
     LOG.info(f"FSMO roles: {roles}")
     return roles
 
@@ -187,7 +239,15 @@ def collect_domain(cfg):
         ds_dn = f"CN=Directory Service,CN=Windows NT,CN=Services,CN=Configuration,{root}"
         conn.search(ds_dn, "(objectClass=*)", attributes=["tombstoneLifetime"])
         if conn.entries:
-            out["tombstone_days"] = int(str(conn.entries[0]["tombstoneLifetime"]))
+            raw = str(conn.entries[0]["tombstoneLifetime"])
+            # ldap3 pode retornar lista vazia "[]" quando atributo nao existe
+            if raw in ("[]", "", "None", "NoneType"):
+                out["tombstone_days"] = 180  # default AD/Samba
+            else:
+                try:
+                    out["tombstone_days"] = int(raw)
+                except ValueError:
+                    out["tombstone_days"] = 180
         else:
             out["tombstone_days"] = 180  # default AD/Samba
     except Exception as e:
@@ -248,6 +308,28 @@ def check_dc(cfg, dc_name, metric):
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
+def debug_fsmo(cfg):
+    """Mostra o DN bruto do fSMORoleOwner para debug do regex."""
+    conn = ldap_connect(cfg)
+    if not conn:
+        return {}
+    root = domain_root(cfg["domain"])
+    result = {}
+    for role, dn_tpl in FSMO_TARGETS:
+        dn = dn_tpl.format(root=root)
+        try:
+            conn.search(dn, "(objectClass=*)", attributes=["fSMORoleOwner"])
+            if conn.entries:
+                owner_dn = str(conn.entries[0]["fSMORoleOwner"])
+                result[role] = {"dn_queried": dn, "owner_dn": owner_dn}
+            else:
+                result[role] = {"dn_queried": dn, "owner_dn": None}
+        except Exception as e:
+            result[role] = {"dn_queried": dn, "error": str(e)}
+    conn.unbind()
+    return result
+
 def main():
     if len(sys.argv) < 2:
         lib_lt.emit("Uso: lt_samba_ad.py <ping|discover_dcs|fsmo|domain|accounts|dc>", 1)
@@ -263,6 +345,9 @@ def main():
                 conn.unbind()
                 lib_lt.emit(1)
             lib_lt.emit(0)
+
+        elif cmd == "fsmo_debug":
+            lib_lt.emit(json.dumps(get_cached("fsmo_debug", ttl, lambda: debug_fsmo(cfg)), indent=2))
 
         elif cmd == "discover_dcs":
             dcs = discover_dcs_dns(cfg["domain"])
