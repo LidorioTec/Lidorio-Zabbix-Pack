@@ -1,28 +1,24 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-  - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0999
+  - uuid: 0f6df1ecdeee4638b0f22ac26f1f8fdb
     name: Lidorio Tech
   templates:
-  - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0001
+  - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0001
     template: LT Samba AD
     name: LT Samba AD
-    description: 'LIDORIO TECH - Modern Samba4/AD monitoring via read-only LDAP.
-
-      Exclusives: DNS SRV DC discovery, FSMO mapping, tombstone lifetime,
-
-      password policy compliance, locked/expired accounts, functional level.
-
-      No shell scripts, no cron, no sudo.'
+    description: 'LIDORIO TECH - Modern Samba4/AD monitoring via read-only LDAP. Exclusives:
+      DNS SRV DC discovery, FSMO mapping, tombstone lifetime, password policy compliance,
+      locked/expired accounts, functional level. No shell scripts, no cron, no sudo.'
     groups:
     - name: Lidorio Tech
     items:
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0010
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0010
       name: 'Samba AD: Domain reachable (LDAP bind)'
       key: sambaad.ping
       delay: '60'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       description: 1 = read-only LDAP bind OK; 0 = domain unreachable.
       tags:
       - tag: component
@@ -30,29 +26,23 @@ zabbix_export:
       - tag: scope
         value: availability
       triggers:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0100
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0100
         expression: last(/LT Samba AD/sambaad.ping)=0
         name: 'Samba AD: Domain unreachable (LDAP bind failed)'
         priority: HIGH
         manual_close: 'YES'
-        description: Read-only LDAP bind failed. Check DC availability, network and
-          bind credentials.
-      valuemap:
-        name: LT Up/Down
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0011
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0011
       name: 'Samba AD: FSMO roles map'
       key: sambaad.fsmo
       delay: '300'
       history: 7d
       value_type: TEXT
-      description: JSON mapping the 5 FSMO roles (schema, naming, pdc, rid, infra)
-        to owner DCs.
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: audit
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0012
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0012
       name: 'Samba AD: Domain functional level'
       key: sambaad.domain[functional_level]
       delay: '3600'
@@ -63,178 +53,161 @@ zabbix_export:
         value: ad
       - tag: scope
         value: audit
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0013
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0013
       name: 'Samba AD: Tombstone lifetime (days)'
       key: sambaad.domain[tombstone_days]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
-      description: Days before deleted objects are purged. Low value = replication
-        risk window.
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: health
       triggers:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0101
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0101
         expression: last(/LT Samba AD/sambaad.domain[tombstone_days])<60
         name: 'Samba AD: Tombstone lifetime below 60 days'
         priority: WARNING
-        description: 'Tombstone lifetime too low: DCs offline longer than this cannot
-          rejoin.'
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0014
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0014
       name: 'Samba AD: Minimum password length'
       key: sambaad.domain[min_pwd_len]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: security
       triggers:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0102
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0102
         expression: last(/LT Samba AD/sambaad.domain[min_pwd_len])<{$LT.SAMBA.PWD.MINLEN}
         name: 'Samba AD: Weak password policy (min length < {$LT.SAMBA.PWD.MINLEN})'
         priority: AVERAGE
-        description: Domain password policy below LIDORIO TECH baseline.
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0015
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0015
       name: 'Samba AD: Maximum password age (days)'
       key: sambaad.domain[max_pwd_age_days]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: security
       triggers:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0103
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0103
         expression: last(/LT Samba AD/sambaad.domain[max_pwd_age_days])=0
         name: 'Samba AD: Passwords never expire (non-compliant)'
         priority: WARNING
-        description: 'maxPwdAge=0 means passwords never expire: security baseline
-          violation.'
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0016
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0016
       name: 'Samba AD: Account lockout threshold'
       key: sambaad.domain[lockout_threshold]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: security
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0017
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0017
       name: 'Samba AD: User accounts count'
       key: sambaad.accounts[users]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: inventory
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0018
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0018
       name: 'Samba AD: Computer accounts count'
       key: sambaad.accounts[computers]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: inventory
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0019
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0019
       name: 'Samba AD: Locked accounts'
       key: sambaad.accounts[locked]
       delay: '300'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: security
       triggers:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0104
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0104
         expression: last(/LT Samba AD/sambaad.accounts[locked])>{$LT.SAMBA.LOCKED.MAX}
         name: 'Samba AD: Locked accounts spike (possible brute-force)'
         priority: WARNING
         manual_close: 'YES'
-        description: Many locked accounts at once may indicate brute-force or misconfigured
-          service accounts.
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0020
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0020
       name: 'Samba AD: Expired accounts'
       key: sambaad.accounts[expired]
       delay: '3600'
       history: 2w
-      value_type: NUMERIC_UNSIGNED
+      value_type: UNSIGNED
       tags:
       - tag: component
         value: ad
       - tag: scope
         value: inventory
     discovery_rules:
-    - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0030
+    - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0030
       name: 'Samba AD: Domain controllers discovery'
       key: sambaad.discover_dcs
       delay: '300'
-      description: Auto-discovers DCs via DNS SRV _ldap._tcp (LIDORIO TECH exclusive).
       item_prototypes:
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0031
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0031
         name: 'Samba AD: {#DC} LDAP responsive'
         key: sambaad.dc[{#DC},ldap]
         delay: '120'
         history: 2w
-        value_type: NUMERIC_UNSIGNED
+        value_type: UNSIGNED
         tags:
         - tag: component
           value: ad
         - tag: dc
           value: '{#DC}'
         trigger_prototypes:
-        - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0110
+        - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0110
           expression: last(/LT Samba AD/sambaad.dc[{#DC},ldap])=0
           name: 'Samba AD: DC {#DC} LDAP unreachable'
           priority: HIGH
           manual_close: 'YES'
-          description: 'Domain controller not answering LDAP: replication and logon
-            risk.'
-        valuemap:
-          name: LT Up/Down
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0032
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0032
         name: 'Samba AD: {#DC} DNS responsive'
         key: sambaad.dc[{#DC},dns]
         delay: '120'
         history: 2w
-        value_type: NUMERIC_UNSIGNED
+        value_type: UNSIGNED
         tags:
         - tag: component
           value: ad
         - tag: dc
           value: '{#DC}'
         trigger_prototypes:
-        - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0111
+        - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0111
           expression: last(/LT Samba AD/sambaad.dc[{#DC},dns])=0
           name: 'Samba AD: DC {#DC} DNS unreachable'
           priority: AVERAGE
           manual_close: 'YES'
-        valuemap:
-          name: LT Up/Down
-      - uuid: 5a4d8a01-5a4d-4a4d-8a4d-5a4d8a4d0033
+      - uuid: 5a4d8a015a4d4a4d8a4d5a4d8a4d0033
         name: 'Samba AD: {#DC} FSMO roles held'
         key: sambaad.dc[{#DC},roles]
         delay: '300'
         history: 2w
-        value_type: NUMERIC_UNSIGNED
-        description: Number of FSMO roles held by this DC (0-5).
+        value_type: UNSIGNED
         tags:
         - tag: component
           value: ad
@@ -243,14 +216,5 @@ zabbix_export:
     macros:
     - macro: '{$LT.SAMBA.LOCKED.MAX}'
       value: '5'
-      description: Max locked accounts before WARNING
     - macro: '{$LT.SAMBA.PWD.MINLEN}'
       value: '8'
-      description: Baseline minimum password length (LIDORIO TECH)
-  value_maps:
-  - name: LT Up/Down
-    mappings:
-    - value: '0'
-      newvalue: Down
-    - value: '1'
-      newvalue: Up
