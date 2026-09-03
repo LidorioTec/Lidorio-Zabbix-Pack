@@ -33,6 +33,7 @@ LOG = lib_lt.get_logger("samba_ad")
 CONF_FILE = "/etc/zabbix/scripts/lt_samba_ad.conf"
 CACHE_FILE = "/tmp/lt_samba_ad.cache.json"
 
+NO_DATA = 99999  # sentinel for unsigned items (Zabbix rejects -1)
 DEFAULTS = {
     "domain": "",            # ex: lab.lidorio.tech
     "bind_dn": "",           # ex: zabbix_ro@lab.lidorio.tech (read-only)
@@ -278,7 +279,7 @@ def collect_accounts(cfg):
             out[key] = len(conn.entries)
         except Exception as e:
             LOG.error(f"account query failed ({key}): {e}")
-            out[key] = -1
+            out[key] = NO_DATA
     conn.unbind()
     LOG.info(f"account metrics: {out}")
     return out
@@ -286,14 +287,28 @@ def collect_accounts(cfg):
 def check_dc(cfg, dc_name, metric):
     """Metricas por DC: ldap | dns | roles."""
     if metric == "ldap":
-        conn = ldap_connect(cfg, uri=f"ldap://{dc_name}.{cfg['domain']}")
-        if conn:
-            conn.unbind()
-            return 1
+        # LDAPS primeiro (Samba exige TLS), fallback ldap puro
+        for uri in (f"ldaps://{dc_name}.{cfg['domain']}:636",
+                    f"ldap://{dc_name}.{cfg['domain']}:389"):
+            conn = ldap_connect(cfg, uri=uri)
+            if conn:
+                conn.unbind()
+                return 1
         return 0
     if metric == "dns":
+        import dns.resolver
+        # Consulta o proprio DC primeiro (independe do resolv.conf)
+        for ns in ("127.0.0.1",):
+            try:
+                r = dns.resolver.Resolver()
+                r.nameservers = [ns]
+                r.timeout = 2
+                r.lifetime = 2
+                r.resolve(f"{dc_name}.{cfg['domain']}", "A")
+                return 1
+            except Exception:
+                continue
         try:
-            import dns.resolver
             dns.resolver.resolve(f"{dc_name}.{cfg['domain']}", "A")
             return 1
         except Exception:
@@ -359,11 +374,15 @@ def main():
 
         elif cmd == "domain" and len(sys.argv) == 3:
             dom = get_cached("domain", ttl, lambda: collect_domain(cfg))
-            lib_lt.emit(dom.get(sys.argv[2], -1))
+            val = dom.get(sys.argv[2])
+            if val is None:
+                lib_lt.emit("unknown" if sys.argv[2] == "functional_level"
+                            else NO_DATA)
+            lib_lt.emit(val)
 
         elif cmd == "accounts" and len(sys.argv) == 3:
             acc = get_cached("accounts", ttl, lambda: collect_accounts(cfg))
-            lib_lt.emit(acc.get(sys.argv[2], -1))
+            lib_lt.emit(acc.get(sys.argv[2], NO_DATA))
 
         elif cmd == "dc" and len(sys.argv) == 4:
             lib_lt.emit(check_dc(cfg, sys.argv[2], sys.argv[3]))
@@ -373,7 +392,7 @@ def main():
             lib_lt.emit(-1, 1)
     except Exception as e:
         LOG.error(f"unhandled exception: {e}")
-        lib_lt.emit(-1, 1)
+        lib_lt.emit("ZBX_NOTSUPPORTED", 1)
 
 if __name__ == "__main__":
     main()
